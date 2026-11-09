@@ -4,6 +4,7 @@ import { authClient, authUrl, storeApiUrl, authenticatedCacheScope } from './aut
 import { downloadCatalog, verifyStoreMembership } from './catalogApi'
 import { clearPrivateCache, readAuthorizedSnapshot, storeAuthorizedSnapshot } from './cache'
 import { emptySnapshot } from './domain'
+import { getNeonAuthJwt } from './authJwt'
 import type { CatalogSnapshot } from './domain'
 
 type SignedIn = { id: string; email: string }
@@ -33,11 +34,15 @@ export default function AuthGate() {
     if (!authClient || !storeApiUrl) return
     setLoading(true)
     setError('')
+    // Never show a previously cached role/snapshot until the current session is checked.
+    setRole(null)
+    setScope(null)
+    setSnapshot(emptySnapshot())
+    setStatus('')
     try {
       if (!navigator.onLine) throw new Error('Cần kết nối mạng để xác minh tài khoản')
-      const tokenResult = await authClient.token()
-      const token = tokenResult.data?.token
-      if (!token) throw new Error('Không lấy được quyền truy cập dữ liệu STORE')
+      if (!authUrl) throw new Error('Chưa cấu hình Neon Auth')
+      const token = await getNeonAuthJwt(authUrl)
       const membership = await verifyStoreMembership(storeApiUrl, token)
       setRole(membership.role)
       const cacheId = await authenticatedCacheScope(user.id)
@@ -176,11 +181,11 @@ export default function AuthGate() {
 
   async function adminToken(): Promise<string> {
     if (!authClient || !storeApiUrl || role !== 'admin') throw new Error('Không có quyền quản trị STORE')
-    const response = await authClient.token()
-    if (!response.data?.token) throw new Error('Phiên đăng nhập đã hết hạn')
-    const membership = await verifyStoreMembership(storeApiUrl,response.data.token)
+    if (!authUrl) throw new Error('Chưa cấu hình Neon Auth')
+    const token = await getNeonAuthJwt(authUrl)
+    const membership = await verifyStoreMembership(storeApiUrl, token)
     if (membership.role !== 'admin') throw new Error('Tài khoản không còn quyền quản trị')
-    return response.data.token
+    return token
   }
 
   if (checking) return <div className="auth-shell"><div className="auth-panel"><h1>STORE</h1><p>Đang xác minh phiên đăng nhập...</p></div></div>
@@ -242,6 +247,27 @@ export default function AuthGate() {
           <button className="auth-text-button" type="button" onClick={() => { setRecoveryView('request'); setError(''); setRecoveryMessage('') }}>Chưa có mật khẩu / Quên mật khẩu?</button>
           <small>Không cho đăng ký tự do. Liên hệ quản trị viên để được cấp quyền.</small>
         </form>
+      </main>
+    )
+  }
+
+  // A Better Auth session is not authorization to read STORE inventory.
+  // Require a fresh signed JWT AND app_members verification before rendering it.
+  if (role === null) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-panel" aria-live="polite">
+          <div className="auth-mark">S</div>
+          <h1>Đang xác minh quyền STORE</h1>
+          <p>{loading ? 'Đang kiểm tra Neon Auth và quyền truy cập danh mục...' : 'Không thể mở dữ liệu khi phiên chưa được xác thực đầy đủ.'}</p>
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          <button className="auth-submit" type="button" disabled={loading} onClick={() => { void load(signedIn) }}>
+            {loading ? 'Đang xác minh...' : 'Thử kết nối lại'}
+          </button>
+          <button className="auth-text-button" type="button" disabled={loading} onClick={() => { void signOut() }}>
+            Đăng xuất và đăng nhập lại
+          </button>
+        </section>
       </main>
     )
   }
