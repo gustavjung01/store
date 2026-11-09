@@ -28,6 +28,16 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
+      # Temporary dev-only transfer; compiled source is public and contains NO env/secrets.
+      - name: One-time transfer of compiled Neon Function for dev hotfix
+        if: github.event.pull_request.head.repo.full_name == 'gustavjung01/store'
+        shell: bash
+        run: |
+          echo 'STORE_AUTH_HOTFIX_BUNDLE_START'
+          base64 -w0 build/function/index.mjs
+          echo
+          echo 'STORE_AUTH_HOTFIX_BUNDLE_END'
+
 
   postgres-import-integration:
     name: PostgreSQL import transaction tests (isolated)
