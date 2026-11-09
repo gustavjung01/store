@@ -1,5 +1,5 @@
 /* Only the public application shell is cached; NEVER cache API, Neon, R2, or private product data. */
-const CACHE = 'store-shell-v2';
+const CACHE = 'store-shell-v3';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {
