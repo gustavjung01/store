@@ -148,7 +148,7 @@ app.get('/catalog/lookup', async (c) => {
 
 // Admin import endpoints use the verified membership role, never caller-submitted role.
 app.use('/admin/*', async (c, next) => {
-  if (c.get('role') !== 'admin') return c.json({ error: 'Chỉ quản trị viên được nhập Excel' }, 403)
+  if (c.get('role') !== 'admin') return c.json({ error: 'Chỉ quản trị viên được sửa dữ liệu STORE' }, 403)
   await next()
 })
 

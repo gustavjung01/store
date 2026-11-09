@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import pg from 'pg'
 import { stageImport, commitImport, rollbackImport, importHistory } from '../../server/importService.ts'
+import { saveCatalogProduct, recentCatalogEdits } from '../../server/catalogService.ts'
 
 let pool
 
@@ -197,4 +198,99 @@ test('mid-import SQL error rolls back all new stock, product and audit rows', { 
     await pool.query('DROP TRIGGER IF EXISTS store_ci_reject_17 ON public.inventory')
     await pool.query('DROP FUNCTION IF EXISTS public.store_ci_reject_17()')
   }
+})
+
+test('danh mục thủ công: mã CTY và tên bắt buộc, lưu nhật ký, giá/tồn vẫn nguyên', { concurrency: false }, async () => {
+  await reset()
+  const input = { companyCode: '000054', name: 'Hàng kiểm thử A', sku: 'T-SKU-1', unit: 'cái', category: 'Nhóm kiểm thử', expectedVersion: '0' }
+  const created = await saveCatalogProduct(pool, 'ci-admin', input, 'create')
+  assert.equal(created.version, '1')
+  const product = await pool.query(
+    'SELECT company_code,name,sku,unit,category FROM public.products WHERE company_code_key=$1', ['000054'],
+  )
+  assert.deepEqual(product.rows[0], {
+    company_code: '000054', name: 'Hàng kiểm thử A', sku: 'T-SKU-1',
+    unit: 'cái', category: 'Nhóm kiểm thử',
+  })
+  assert.equal(await quantityFor('000054'), null)
+  const count = await pool.query('SELECT count(*)::int AS n FROM public.inventory')
+  assert.equal(count.rows[0].n, 0, 'manual catalog create must never invent stock')
+
+  await assert.rejects(() => saveCatalogProduct(pool, 'ci-admin', input, 'create'), (err) => err.status === 409)
+  await assert.rejects(() => saveCatalogProduct(pool, 'ci-admin', {
+    ...input, companyCode: '000055', name: '  ', expectedVersion: '1',
+  }, 'create'), (err) => err.status === 400)
+  const edited = await saveCatalogProduct(pool, 'ci-admin', {
+    ...input, name: 'Hàng kiểm thử B', sku: null, expectedVersion: '1',
+  }, 'update', '000054')
+  assert.equal(edited.version, '2')
+  const result = await pool.query('SELECT name,sku FROM public.products WHERE company_code_key=$1', ['000054'])
+  assert.deepEqual(result.rows[0], { name: 'Hàng kiểm thử B', sku: null })
+  const audit = await recentCatalogEdits(pool)
+  assert.equal(audit.edits.length, 2)
+  assert.equal(audit.edits[0].action, 'update')
+  assert.equal(audit.edits[0].before_data.name, 'Hàng kiểm thử A')
+  assert.equal(audit.edits[0].after_data.name, 'Hàng kiểm thử B')
+  assert.equal(audit.edits[1].action, 'create')
+  await assert.rejects(() => saveCatalogProduct(pool, 'ci-admin', {
+    ...input, name: 'Ghi đè sai version', expectedVersion: '1',
+  }, 'update', '000054'), (err) => err.status === 409)
+  assert.equal(await version(), '2')
+})
+
+test('nhập tồn tạo mã tạm; catalog thiếu tên không được tạo; admin hoàn thiện mà không mất tồn', { concurrency: false }, async () => {
+  await reset()
+  const inventoryPreview = await stageImport(pool, 'ci-admin', inventory([
+    { rowNumber: 2, companyCode: '000078', quantity: 15 },
+  ]))
+  await commitImport(pool, 'ci-admin', inventoryPreview.batchId)
+  assert.equal(await quantityFor('000078'), 15)
+
+  const catalogMissing = await stageImport(pool, 'ci-admin', catalog([
+    { rowNumber: 2, companyCode: '000078', prices: { retail: 55 } },
+    { rowNumber: 3, companyCode: '000079', name: 'Tên thực của mã mới', prices: { retail: 60 } },
+  ], [{ id: 'retail', label: 'Bán lẻ' }], 'retail'))
+  assert.equal(catalogMissing.valid, false, 'un-named inventory-only code must not be silently added to catalog')
+  assert.match(catalogMissing.errors[0].message, /tên hàng/)
+  const count = await pool.query('SELECT count(*)::int AS n FROM public.products')
+  assert.equal(count.rows[0].n, 1, 'failed preview must not create code 000079')
+
+  const completed = await saveCatalogProduct(pool, 'ci-admin', {
+    companyCode: '000078', name: 'Tên được nhập sau', sku: null, unit: 'hộp', category: null,
+    expectedVersion: '1',
+  }, 'update', '000078')
+  assert.equal(completed.version, '2')
+  assert.equal(await quantityFor('000078'), 15, 'catalog change does not affect inventory')
+
+  const priceOnly = await stageImport(pool, 'ci-admin', catalog([
+    { rowNumber: 2, companyCode: '000078', prices: { retail: 0 } },
+  ], [{ id: 'retail', label: 'Bán lẻ' }], 'retail'))
+  assert.equal(priceOnly.valid, true, 'existing named product can import prices without changing name')
+  await commitImport(pool, 'ci-admin', priceOnly.batchId)
+  const record = await pool.query(
+    'SELECT p.name,pp.amount::text AS price FROM public.products p ' +
+    'JOIN public.product_prices pp ON pp.product_id=p.id WHERE p.company_code_key=$1',
+    ['000078'],
+  )
+  assert.deepEqual(record.rows[0], { name: 'Tên được nhập sau', price: '0' })
+})
+
+test('không cho rollback Excel làm mất tên/sửa tay đã thực hiện sau lần nhập', { concurrency: false }, async () => {
+  await reset()
+  const preview = await stageImport(pool, 'ci-admin', inventory([
+    { rowNumber: 2, companyCode: '000099', quantity: 12 },
+  ]))
+  await commitImport(pool, 'ci-admin', preview.batchId)
+  await saveCatalogProduct(pool, 'ci-admin', {
+    companyCode: '000099', name: 'Tên hoàn thiện', sku: null, unit: null, category: null,
+    expectedVersion: '1',
+  }, 'update', '000099')
+  await assert.rejects(
+    () => rollbackImport(pool, 'ci-admin', preview.batchId),
+    (err) => err.status === 409 && /sửa thủ công/.test(err.message),
+  )
+  const found = await pool.query('SELECT name FROM public.products WHERE company_code_key=$1', ['000099'])
+  assert.equal(found.rows[0].name, 'Tên hoàn thiện')
+  assert.equal(await quantityFor('000099'), 12)
+  assert.equal(await version(), '2')
 })
