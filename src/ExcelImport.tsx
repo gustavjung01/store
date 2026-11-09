@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react'
 import { buildMappedImport, columnHeader } from './excelImportMapping'
 import type { ColumnSelection, ExcelSheet } from './excelImportMapping'
 import type { ImportKind, ImportIssue } from '../server/importValidation'
+import type { ProductSpec } from './productSpec'
 
 type ApiPreview = {
   valid: boolean
@@ -13,6 +14,8 @@ type ApiPreview = {
     newCount: number
     changedCount: number
     unchangedCount: number
+    missingUnitCount?: number
+    changedUnitWithStock?: number
     absentCodesUnaffected: number
     sample: Array<{
       rowNumber: number
@@ -22,6 +25,10 @@ type ApiPreview = {
       nextQuantity: number | null
       previousPrices: Record<string, string>
       nextPrices: Record<string, number>
+      previousUnit?: string | null
+      nextUnit?: string | null
+      previousCarton?: number | null
+      nextCarton?: number | null
     }>
   }
 }
@@ -35,9 +42,22 @@ type Batch = {
 }
 
 const initialMapping: ColumnSelection = {
-  code:-1,quantity:-1,name:-1,sku:-1,unit:-1,prices:[],defaultPriceColumn:-1,
+  code:-1,quantity:-1,name:-1,sku:-1,unit:-1,specColumns:{},defaultUnitForNew:'Thùng',prices:[],defaultPriceColumn:-1,
 }
 const emptyOption = { label: '— Không chọn —', value: -1 }
+const specColumnFields: Array<{ field: keyof ProductSpec; label: string }> = [
+  { field: 'pieceUnit', label: 'ĐVT sản phẩm lẻ (quyển/cái)' },
+  { field: 'unitsPerCarton', label: 'Số sản phẩm / thùng' },
+  { field: 'packUnit', label: 'Đơn vị đóng gói (lốc/hộp)' },
+  { field: 'unitsPerPack', label: 'Số sản phẩm / lốc-hộp' },
+  { field: 'packsPerCarton', label: 'Số lốc-hộp / thùng' },
+  { field: 'paperSize', label: 'Khổ giấy' },
+  { field: 'pages', label: 'Số trang' },
+  { field: 'gsm', label: 'GSM' },
+  { field: 'ruling', label: 'Loại kẻ' },
+  { field: 'coverType', label: 'Loại bìa' },
+  { field: 'packagingNote', label: 'Ghi chú đóng gói' },
+]
 
 export default function ExcelImport({
   apiBase,getToken,onClose,onSaved,
@@ -99,6 +119,10 @@ export default function ExcelImport({
     setPreview(null);setIssues([]);setMessage('')
   }
 
+  function changeSpecColumn(field: keyof ProductSpec, col: number) {
+    changeMapping({ specColumns: { ...(mapping.specColumns ?? {}), [field]: col } })
+  }
+
   function resetForNewFile() {
     setMapping(initialMapping);setPreview(null);setIssues([]);setError('');setMessage('')
   }
@@ -142,6 +166,8 @@ export default function ExcelImport({
 
   async function commit() {
     if (!preview?.valid || !preview.batchId) return
+    if (kind === 'catalog' && (preview.summary?.changedUnitWithStock ?? 0) > 0 &&
+      !window.confirm('Có mã hàng đang có tồn mà ĐVT thay đổi. Số tồn sẽ KHÔNG được quy đổi. Anh đã đối chiếu Excel và xác nhận ĐVT đúng cho tất cả các mã?')) return
     if (!window.confirm('Xác nhận ghi dữ liệu từ file Excel này vào STORE?')) return
     setBusy(true);setError('');setMessage('')
     try {
@@ -208,6 +234,25 @@ export default function ExcelImport({
             </>}
           </div>
           {kind === 'catalog' && <>
+            <div className="excel-pack-fields">
+              <label className="excel-field"><span>ĐVT mặc định chỉ cho MÃ MỚI chưa có cột ĐVT</span>
+                <select value={mapping.defaultUnitForNew ?? ''} onChange={e=>changeMapping({defaultUnitForNew:e.target.value || null})}>
+                  <option value="">Không tự gán · cần xác nhận sau</option>
+                  <option value="Thùng">Thùng (bán sỉ)</option>
+                  <option value="Hộp">Hộp</option>
+                  <option value="Lốc">Lốc</option>
+                  <option value="Quyển">Quyển</option>
+                  <option value="Cái">Cái</option>
+                  <option value="Bộ">Bộ</option>
+                </select>
+              </label>
+              <details><summary>Ánh xạ các cột quy cách (tùy chọn)</summary>
+                <p>Chỉ những cột được chọn và có giá trị mới cập nhật quy cách. Không đoán số sản phẩm/thùng; quy cách mâu thuẫn bị chặn khi xem trước.</p>
+                <div className="excel-grid">
+                  {specColumnFields.map(({field,label})=>selectInput(label,mapping.specColumns?.[field] ?? -1,n=>changeSpecColumn(field,n)))}
+                </div>
+              </details>
+            </div>
             <div className="excel-price-fields"><strong>Chọn các cột giá trong Excel</strong><p>Ô giá trống không xóa giá cũ. Giá 0 là giá trị hợp lệ.</p>
               <div className="excel-checks">
                 {headers.map(h=><label key={h.value}><input type="checkbox" checked={mapping.prices.includes(h.value)} onChange={e=>{
@@ -218,7 +263,7 @@ export default function ExcelImport({
             </div>
             <label className="excel-field"><span>Loại giá hiển thị mặc định cho nhân viên</span><select value={mapping.defaultPriceColumn} onChange={e=>changeMapping({defaultPriceColumn:Number(e.target.value)})}><option value={-1}>Giữ mặc định hiện tại</option>{headers.filter(h=>mapping.prices.includes(h.value)).map(h=><option key={h.value} value={h.value}>{h.label}</option>)}</select></label>
           </>}
-          <p className="excel-notice">Mã CTY cần là ô Text để giữ số 0 đầu. Import danh mục không tạo mã mới khi thiếu tên hàng. Import tồn vẫn có thể tạo mã tạm để bổ sung tên sau. Các mã vắng mặt không bị đưa về 0.</p>
+          <p className="excel-notice">Mã CTY cần là ô Text để giữ số 0 đầu. Import tồn: số lượng theo ĐVT đã xác nhận của từng mã; mã mới chưa có ĐVT, không tự coi là thùng. Import danh mục: chỉ mã mới dùng ĐVT mặc định đã chọn; mã cũ không bị đổi ĐVT nếu bỏ qua cột. Các mã vắng file giữ nguyên số tồn.</p>
           <button className="excel-primary" type="button" disabled={busy} onClick={()=>{void previewImport()}}>{busy ? 'Đang xử lý...' : 'Xem trước thay đổi trên Neon'}</button>
         </>}
         {issues.length > 0 && <div className="excel-issues" role="alert"><strong>Chưa thể xác nhận: {issues.length} lỗi được phát hiện</strong>{issues.slice(0,30).map((i,index)=><p key={index}>Dòng {i.rowNumber || 'cấu hình'}: {i.message}</p>)}</div>}
@@ -234,8 +279,10 @@ export default function ExcelImport({
           <span><strong>{preview.summary.unchangedCount}</strong>Không đổi</span>
         </div>
         <p className="excel-notice">{preview.summary.absentCodesUnaffected} mã trong STORE không có trong file sẽ được giữ nguyên. Bản xem trước hết hạn sau 20 phút.</p>
-        <div className="excel-table-wrap"><table><thead><tr><th>Dòng</th><th>Mã CTY</th><th>Trạng thái</th><th>Trước</th><th>Sau</th></tr></thead><tbody>
-          {preview.summary.sample.map(row=><tr key={row.rowNumber}><td>{row.rowNumber}</td><td><code>{row.companyCode}</code></td><td>{row.action==='new'?'Mã mới':row.action==='changed'?'Thay đổi':'Giữ nguyên'}</td><td>{kind==='inventory' ? row.previousQuantity ?? 'Chưa có' : JSON.stringify(row.previousPrices)}</td><td>{kind==='inventory' ? row.nextQuantity ?? 'Chưa có' : JSON.stringify(row.nextPrices)}</td></tr>)}
+        {(preview.summary.missingUnitCount ?? 0) > 0 && <p className="excel-unit-warning" role="status">{preview.summary.missingUnitCount} mã trong lượt nhập chưa xác nhận ĐVT. Không tự hiểu số tồn là thùng.</p>}
+        {(preview.summary.changedUnitWithStock ?? 0) > 0 && <p className="excel-unit-warning" role="alert">Cảnh báo: {preview.summary.changedUnitWithStock} mã đang có số tồn sẽ bị đổi ĐVT mà KHÔNG quy đổi số lượng. Cần đối chiếu trước khi xác nhận.</p>
+        <div className="excel-table-wrap"><table><thead><tr><th>Dòng</th><th>Mã CTY</th><th>Trạng thái</th><th>ĐVT trước → sau</th><th>SP/thùng trước → sau</th><th>Trước</th><th>Sau</th></tr></thead><tbody>
+          {preview.summary.sample.map(row=><tr key={row.rowNumber}><td>{row.rowNumber}</td><td><code>{row.companyCode}</code></td><td>{row.action==='new'?'Mã mới':row.action==='changed'?'Thay đổi':'Giữ nguyên'}</td><td>{row.previousUnit || '—'} → {row.nextUnit || 'Chưa xác nhận'}</td><td>{row.previousCarton ?? '—'} → {row.nextCarton ?? '—'}</td><td>{kind==='inventory' ? row.previousQuantity ?? 'Chưa có' : JSON.stringify(row.previousPrices)}</td><td>{kind==='inventory' ? row.nextQuantity ?? 'Chưa có' : JSON.stringify(row.nextPrices)}</td></tr>)}
         </tbody></table></div>
         <p className="excel-notice">Hiển thị tối đa 80 dòng đầu; toàn bộ {preview.summary.total} dòng được kiểm tra và ghi trong transaction.</p>
         <button type="button" className="excel-primary" disabled={busy} onClick={()=>{void commit()}}>XÁC NHẬN CẬP NHẬT STORE</button>
