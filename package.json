@@ -29,7 +29,7 @@
     "@neon/config": "^1.13.0",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.15.0",
-    "esbuild": "^0.25.12"
+    "esbuild": "^0.28.2"
   },
   "engines": {
     "node": ">=22.12.0"
