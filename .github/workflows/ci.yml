@@ -28,27 +28,3 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
-
-      # One-time read-only transfer of compiled source; no environment secrets.
-      - name: Export compiled dev Function
-        shell: bash
-        run: |
-          echo 'STORE_IMPORT_BUNDLE_START'
-          base64 -w0 build/function/index.mjs
-          echo
-          echo 'STORE_IMPORT_BUNDLE_END'
-
-      - name: Smoke test protected dev import API
-        shell: bash
-        run: |
-          set -euo pipefail
-          api='https://br-lucky-violet-aznxmc4n-storeapi.compute.c-3.ap-southeast-1.aws.neon.tech/'
-          for path in admin/imports admin/import/preview admin/import/commit admin/import/rollback; do
-            method=GET
-            [[ "$path" == admin/imports ]] || method=POST
-            status="$(curl --max-time 30 --retry 2 -sS -o /dev/null -w '%{http_code}' -X "$method" "${api}$path")"
-            echo "$method /$path: HTTP $status (expect 401)"
-            [[ "$status" == 401 ]] || exit 1
-          done
-          status="$(curl --max-time 30 --retry 2 -sS -o /dev/null -w '%{http_code}' "${api}health")"
-          [[ "$status" == 200 ]] || exit 1
