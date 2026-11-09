@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import AuthGate from './AuthGate'
 import './styles.css'
 import './store-ui.css'
+import './store-theme.css'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Không tìm thấy root')
