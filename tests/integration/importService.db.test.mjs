@@ -20,6 +20,7 @@ before(async () => {
     'db/migrations/0001_store_catalog.sql',
     'db/migrations/0002_excel_imports.sql',
     'db/migrations/0003_catalog_edit_audit.sql',
+    'db/migrations/0004_product_packaging.sql',
   ]) {
     await pool.query(await readFile(migration, 'utf8'))
   }
@@ -293,4 +294,116 @@ test('không cho rollback Excel làm mất tên/sửa tay đã thực hiện sau
   assert.equal(found.rows[0].name, 'Tên hoàn thiện')
   assert.equal(await quantityFor('000099'), 12)
   assert.equal(await version(), '2')
+})
+
+test('manual catalogue stores verified carton specs and preserves them on legacy update', { concurrency: false }, async () => {
+  await reset()
+  const input = {
+    companyCode: '000070', name: 'Hàng kiểm thử quy cách',
+    sku: null, unit: 'Thùng', category: null, expectedVersion: '0',
+    productSpec: { pieceUnit: 'quyển', unitsPerCarton: 100, paperSize: 'A4', pages: 96 },
+  }
+  await saveCatalogProduct(pool, 'ci-admin', input, 'create')
+  let found = await pool.query(
+    'SELECT unit,product_spec FROM public.products WHERE company_code_key=$1', ['000070'],
+  )
+  assert.equal(found.rows[0].unit, 'Thùng')
+  assert.equal(found.rows[0].product_spec.unitsPerCarton, 100)
+  assert.equal(found.rows[0].product_spec.pieceUnit, 'quyển')
+  assert.equal(await quantityFor('000070'), null, 'product specification must not create inventory')
+
+  await saveCatalogProduct(pool, 'ci-admin', {
+    companyCode: '000070', name: 'Tên được sửa sau', sku: null,
+    unit: 'Thùng', category: null, expectedVersion: '1',
+  }, 'update', '000070')
+  found = await pool.query(
+    'SELECT name,unit,product_spec FROM public.products WHERE company_code_key=$1', ['000070'],
+  )
+  assert.equal(found.rows[0].product_spec.unitsPerCarton, 100, 'omitted spec preserves previous facts')
+  assert.equal(found.rows[0].name, 'Tên được sửa sau')
+  const audit = await recentCatalogEdits(pool)
+  assert.equal(audit.edits[0].before_data.productSpec.unitsPerCarton, 100)
+  assert.equal(audit.edits[0].after_data.productSpec.unitsPerCarton, 100)
+})
+
+test('catalogue Excel maps carton specs, defaults new unit to Thùng and restores specs on rollback', { concurrency: false }, async () => {
+  await reset()
+  const firstPayload = catalog([
+    { rowNumber: 2, companyCode: '000071', name: 'Hàng kiểm thử A',
+      productSpec: { pieceUnit: 'quyển', unitsPerCarton: 100, paperSize: 'A4' } },
+    { rowNumber: 3, companyCode: '000072', name: 'Hàng kiểm thử B', unit: 'Hộp',
+      productSpec: { pieceUnit: 'cái', unitsPerCarton: 12 } },
+  ], [], null)
+  firstPayload.defaultUnitForNew = 'Thùng'
+  const first = await stageImport(pool, 'ci-admin', firstPayload)
+  assert.equal(first.valid, true)
+  assert.equal(first.summary.sample[0].nextUnit, 'Thùng')
+  assert.equal(first.summary.sample[1].nextUnit, 'Hộp')
+  assert.equal(first.summary.sample[0].nextCarton, 100)
+  await commitImport(pool, 'ci-admin', first.batchId)
+  const before = await pool.query(
+    'SELECT company_code,unit,product_spec FROM public.products ORDER BY company_code',
+  )
+  assert.deepEqual(before.rows.map(x => [x.company_code,x.unit,x.product_spec.unitsPerCarton]), [
+    ['000071','Thùng',100],['000072','Hộp',12],
+  ])
+
+  const patch = catalog([
+    { rowNumber: 2, companyCode: '000071', productSpec: { pages: 120 } },
+  ], [], null)
+  patch.defaultUnitForNew = 'Thùng'
+  const change = await stageImport(pool, 'ci-admin', patch)
+  assert.equal(change.valid, true)
+  assert.equal(change.summary.sample[0].nextUnit, 'Thùng')
+  assert.equal(change.summary.sample[0].nextCarton, 100)
+  await commitImport(pool, 'ci-admin', change.batchId)
+  let row = await pool.query('SELECT product_spec FROM public.products WHERE company_code_key=$1', ['000071'])
+  assert.equal(row.rows[0].product_spec.pages, 120)
+  assert.equal(row.rows[0].product_spec.unitsPerCarton, 100, 'unmapped carton conversion is preserved')
+  await rollbackImport(pool, 'ci-admin', change.batchId)
+  row = await pool.query('SELECT product_spec FROM public.products WHERE company_code_key=$1', ['000071'])
+  assert.equal(row.rows[0].product_spec.pages, null)
+  assert.equal(row.rows[0].product_spec.unitsPerCarton, 100)
+  await rollbackImport(pool, 'ci-admin', first.batchId)
+  const count = await pool.query('SELECT count(*)::int AS count FROM public.products')
+  assert.equal(count.rows[0].count, 0)
+})
+
+test('stock-only Excel creates unknown-unit code; rejects contradictory carton specs at preview', { concurrency: false }, async () => {
+  await reset()
+  const inventoryPreview = await stageImport(pool, 'ci-admin', inventory([
+    { rowNumber: 2, companyCode: '000075', quantity: 7 },
+  ]))
+  assert.equal(inventoryPreview.valid, true)
+  assert.equal(inventoryPreview.summary.sample[0].nextUnit, null)
+  assert.equal(inventoryPreview.summary.missingUnitCount, 1)
+  await commitImport(pool, 'ci-admin', inventoryPreview.batchId)
+  const initial = await pool.query('SELECT unit FROM public.products WHERE company_code_key=$1', ['000075'])
+  assert.equal(initial.rows[0].unit, null, 'inventory import must not guess a carton unit')
+
+  const bad = await stageImport(pool, 'ci-admin', catalog([
+    { rowNumber: 2, companyCode: '000075', name: 'Hàng thử nghiệm',
+      productSpec: { pieceUnit:'quyển', packUnit:'lốc', unitsPerPack:10, packsPerCarton:12, unitsPerCarton:96 } },
+  ], [], null))
+  assert.equal(bad.valid, false)
+  assert.match(bad.errors[0].message, /mâu thuẫn/)
+  const check = await pool.query('SELECT product_spec FROM public.products WHERE company_code_key=$1', ['000075'])
+  assert.deepEqual(check.rows[0].product_spec, {})
+  assert.equal(await quantityFor('000075'), 7)
+
+  const good = await stageImport(pool, 'ci-admin', catalog([
+    { rowNumber: 2, companyCode: '000075', name: 'Hàng thử nghiệm', unit: 'Thùng',
+      productSpec: { pieceUnit:'quyển', unitsPerCarton:100 } },
+  ], [], null))
+  assert.equal(good.valid, true)
+  await commitImport(pool, 'ci-admin', good.batchId)
+  assert.equal(await quantityFor('000075'), 7)
+  const actual = await pool.query('SELECT unit,product_spec FROM public.products WHERE company_code_key=$1', ['000075'])
+  assert.equal(actual.rows[0].unit, 'Thùng')
+  assert.equal(actual.rows[0].product_spec.unitsPerCarton, 100)
+  await rollbackImport(pool, 'ci-admin', good.batchId)
+  const undone = await pool.query('SELECT unit,product_spec FROM public.products WHERE company_code_key=$1', ['000075'])
+  assert.equal(undone.rows[0].unit, null)
+  assert.deepEqual(undone.rows[0].product_spec, {})
+  assert.equal(await quantityFor('000075'), 7)
 })

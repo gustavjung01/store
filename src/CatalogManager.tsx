@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { formatVnd, normalizeCode, priceFor, stockState } from './domain'
 import type { CatalogSnapshot, ProductRecord } from './domain'
+import { normalizeProductSpec, safeProductSpec, piecesPerCarton } from './productSpec'
+import type { ProductSpec } from './productSpec'
 
 type Editor = {
   mode: 'create' | 'update'
@@ -10,6 +12,7 @@ type Editor = {
   sku: string
   unit: string
   category: string
+  spec: Record<keyof ProductSpec, string>
 }
 
 type EditEvent = {
@@ -21,7 +24,15 @@ type EditEvent = {
   after_data: { name?: string | null }
 }
 
-const blank: Editor = { mode: 'create', companyCode: '', name: '', sku: '', unit: '', category: '' }
+const specBlank: Record<keyof ProductSpec, string> = {
+  paperSize: '', pages: '', ruling: '', gsm: '', coverType: '', pieceUnit: '',
+  packUnit: '', unitsPerPack: '', packsPerCarton: '', unitsPerCarton: '', packagingNote: '',
+}
+function specForm(raw: ProductRecord['productSpec']): Record<keyof ProductSpec, string> {
+  const spec = safeProductSpec(raw)
+  return Object.fromEntries(Object.entries(spec).map(([key, value]) => [key, value === null ? '' : String(value)])) as Record<keyof ProductSpec, string>
+}
+const blank: Editor = { mode: 'create', companyCode: '', name: '', sku: '', unit: 'Thùng', category: '', spec: { ...specBlank } }
 const friendly = (value: string) => value.normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
 
@@ -98,6 +109,7 @@ export default function CatalogManager({
     const original: Editor = {
       mode: 'update', companyCode: product.companyCode, name: product.name ?? '',
       sku: product.sku ?? '', unit: product.unit ?? '', category: product.category ?? '',
+      spec: specForm(product.productSpec),
     }
     editorBaseline.current = original
     setEditor({ ...original })
@@ -105,8 +117,8 @@ export default function CatalogManager({
   }
 
   function startCreate() {
-    editorBaseline.current = { ...blank }
-    setEditor({ ...blank })
+    editorBaseline.current = { ...blank, spec: { ...specBlank } }
+    setEditor({ ...blank, spec: { ...specBlank } })
     setError('');setMessage('')
   }
 
@@ -162,6 +174,11 @@ export default function CatalogManager({
     setError('')
   }
 
+  function patchSpec(field: keyof ProductSpec, value: string) {
+    setEditor(old => old ? { ...old, spec: { ...old.spec, [field]: value } } : null)
+    setError('')
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!editor || !isAdmin) return
@@ -172,6 +189,14 @@ export default function CatalogManager({
       setError('Mã CTY và tên hàng là hai trường bắt buộc')
       return
     }
+    let productSpec: ProductSpec
+    try { productSpec = normalizeProductSpec(editor.spec) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Quy cách không hợp lệ'); return }
+    const previousUnit = editorBaseline.current?.unit.trim().toLocaleLowerCase('vi') ?? ''
+    const updatedUnit = editor.unit.trim().toLocaleLowerCase('vi')
+    const existing = snapshot.products.find(p => p.companyCode === editor.companyCode)
+    if (editor.mode === 'update' && existing?.quantity !== null && existing?.quantity !== undefined && previousUnit !== updatedUnit &&
+      !window.confirm('Mã này đang có số tồn. Đổi ĐVT KHÔNG tự đổi số lượng trong Excel. Anh đã kiểm tra đúng ĐVT tồn trước khi lưu?')) return
     setSaving(true)
     try {
       const jwt = await getAdminToken()
@@ -181,7 +206,7 @@ export default function CatalogManager({
         body: JSON.stringify({
           companyCode: editor.companyCode, name: editor.name,
           sku: editor.sku || null, unit: editor.unit || null,
-          category: editor.category || null, expectedVersion: snapshot.version,
+          category: editor.category || null, productSpec, expectedVersion: snapshot.version,
         }),
         cache: 'no-store', redirect: 'error',
       })
@@ -239,10 +264,32 @@ export default function CatalogManager({
             <label><span>Tên hàng <b>*</b></span><input type="text" required maxLength={400} value={editor.name}
               onChange={e => patch({ name: e.target.value })} disabled={saving} autoComplete="off" placeholder="Tên sản phẩm đầy đủ theo danh mục công ty" /></label>
             <label><span>SKU</span><input maxLength={120} value={editor.sku} onChange={e => patch({ sku: e.target.value })} disabled={saving} placeholder="Không bắt buộc" /></label>
-            <label><span>Đơn vị tính</span><input maxLength={60} value={editor.unit} onChange={e => patch({ unit: e.target.value })} disabled={saving} placeholder="Ví dụ: cái, hộp... (chỉ là gợi ý)" /></label>
+            <label><span>ĐVT tồn kho (mặc định Thùng cho mã mới)</span><input list="store-units" maxLength={60} value={editor.unit} onChange={e => patch({ unit: e.target.value })} disabled={saving} placeholder="Chọn hoặc nhập ĐVT thực tế" /><datalist id="store-units"><option value="Thùng" /><option value="Hộp" /><option value="Lốc" /><option value="Quyển" /><option value="Cái" /><option value="Bộ" /><option value="Gói" /></datalist></label>
             <label className="catalog-category-field"><span>Nhóm hàng</span><input maxLength={120} value={editor.category} onChange={e => patch({ category: e.target.value })} disabled={saving} placeholder="Để trống nếu chưa phân nhóm" /></label>
           </div>
-          <p className="catalog-form-note">Giá bán và số tồn không thay đổi khi lưu thông tin sản phẩm. Có thể nhập bảng giá và tồn từ Excel sau.</p>
+          <section className="catalog-spec-section">
+            <h3>Quy cách đóng gói</h3>
+            <p>Nhập đúng số lượng công ty xác nhận. Để trống nếu chưa rõ, STORE sẽ không tự tính quy đổi.</p>
+            <div className="catalog-form-grid">
+              <label><span>Đơn vị sản phẩm lẻ</span><input maxLength={40} value={editor.spec.pieceUnit} onChange={e => patchSpec('pieceUnit', e.target.value)} disabled={saving} placeholder="Quyển, cái..." /></label>
+              <label><span>Số sản phẩm / thùng</span><input type="number" min="1" max="100000000" step="1" value={editor.spec.unitsPerCarton} onChange={e => patchSpec('unitsPerCarton', e.target.value)} disabled={saving} placeholder="Để trống nếu chưa biết" /></label>
+              <label><span>Đơn vị đóng gói trung gian</span><input maxLength={40} value={editor.spec.packUnit} onChange={e => patchSpec('packUnit', e.target.value)} disabled={saving} placeholder="Lốc, hộp..." /></label>
+              <label><span>Sản phẩm / lốc hoặc hộp</span><input type="number" min="1" max="100000" step="1" value={editor.spec.unitsPerPack} onChange={e => patchSpec('unitsPerPack', e.target.value)} disabled={saving} placeholder="Để trống nếu chưa biết" /></label>
+              <label><span>Số lốc hoặc hộp / thùng</span><input type="number" min="1" max="100000" step="1" value={editor.spec.packsPerCarton} onChange={e => patchSpec('packsPerCarton', e.target.value)} disabled={saving} placeholder="Để trống nếu chưa biết" /></label>
+              <label><span>Ghi chú đóng gói</span><input maxLength={300} value={editor.spec.packagingNote} onChange={e => patchSpec('packagingNote', e.target.value)} disabled={saving} placeholder="Thông tin có nguồn thực tế" /></label>
+            </div>
+            <details className="catalog-spec-extra">
+              <summary>Thông số sản phẩm (khổ, trang, GSM...)</summary>
+              <div className="catalog-form-grid">
+                <label><span>Khổ giấy</span><input maxLength={60} value={editor.spec.paperSize} onChange={e => patchSpec('paperSize', e.target.value)} disabled={saving} placeholder="Khổ giấy thực tế" /></label>
+                <label><span>Số trang</span><input type="number" min="1" max="10000" step="1" value={editor.spec.pages} onChange={e => patchSpec('pages', e.target.value)} disabled={saving} /></label>
+                <label><span>Định lượng GSM</span><input type="number" min="1" max="2000" step="1" value={editor.spec.gsm} onChange={e => patchSpec('gsm', e.target.value)} disabled={saving} /></label>
+                <label><span>Loại kẻ</span><input maxLength={120} value={editor.spec.ruling} onChange={e => patchSpec('ruling', e.target.value)} disabled={saving} /></label>
+                <label className="catalog-category-field"><span>Loại bìa</span><input maxLength={120} value={editor.spec.coverType} onChange={e => patchSpec('coverType', e.target.value)} disabled={saving} /></label>
+              </div>
+            </details>
+          </section>
+          <p className="catalog-form-note">ĐVT mới không tự đổi số tồn hiện có. Giá và tồn chỉ thay đổi qua quy trình riêng; không nhập số liệu giả.</p>
           {error && <div className="catalog-error" role="alert">{error}</div>}
           <div className="catalog-form-actions">
             <button type="button" className="catalog-secondary" disabled={saving} onClick={closeEditor}>Hủy</button>
@@ -275,7 +322,8 @@ export default function CatalogManager({
                 <div className="catalog-item-body">
                   <span className="catalog-code">{item.companyCode}</span>
                   <h3>{item.name?.trim() || <span className="catalog-unnamed">Chưa có tên hàng</span>}</h3>
-                  <p>{[item.sku ? 'SKU: ' + item.sku : null, item.unit ? 'ĐVT: ' + item.unit : null, item.category].filter(Boolean).join(' · ') || 'Chưa có thông tin bổ sung'}</p>
+                  <p>{[item.sku ? 'SKU: ' + item.sku : null, item.unit ? 'ĐVT: ' + item.unit : 'ĐVT: chưa xác nhận', item.category].filter(Boolean).join(' · ')}</p>
+                  {piecesPerCarton(safeProductSpec(item.productSpec)) && safeProductSpec(item.productSpec).pieceUnit && <p className="catalog-pack-note">1 thùng = {piecesPerCarton(safeProductSpec(item.productSpec))?.toLocaleString('vi-VN')} {safeProductSpec(item.productSpec).pieceUnit}</p>}
                 </div>
                 <div className="catalog-item-meta">
                   <span className={'stock-badge stock-' + currentState}>{currentState === 'unknown' ? 'Chưa có tồn' : currentState === 'empty' ? 'Hết hàng' : 'Còn ' + item.quantity}</span>

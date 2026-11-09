@@ -1,6 +1,8 @@
 import type { Pool, PoolClient } from 'pg'
 import { ImportFailure, validateImport } from './importValidation.ts'
 import type { ImportPayload, ImportRow } from './importValidation'
+import { normalizeProductSpec, piecesPerCarton, safeProductSpec } from '../src/productSpec.ts'
+import type { ProductSpec } from '../src/productSpec.ts'
 
 interface ExistingProduct {
   id: string
@@ -10,6 +12,7 @@ interface ExistingProduct {
   name: string | null
   unit: string | null
   category: string | null
+  product_spec: ProductSpec
   image_url: string | null
   created_at: Date
   updated_at: Date
@@ -63,7 +66,7 @@ async function currentVersion(db: PoolClient): Promise<string> {
 
 async function lookupAll(db: PoolClient, codes: string[]): Promise<Map<string, ExistingProduct>> {
   const result = await db.query<ExistingProduct>(
-    `SELECT p.id,p.company_code,p.company_code_key,p.sku,p.name,p.unit,p.category,
+    `SELECT p.id,p.company_code,p.company_code_key,p.sku,p.name,p.unit,p.category,p.product_spec,
        p.image_url,p.created_at,p.updated_at,
        i.quantity,i.updated_at AS stock_updated_at,i.last_import_batch_id,
        (i.product_id IS NOT NULL) AS inventory_exists,
@@ -81,6 +84,8 @@ function rowChanges(row: ImportRow, old: ExistingProduct | undefined, kind: 'inv
   if (row.name !== null && row.name !== undefined && row.name !== old.name) return true
   if (row.sku !== null && row.sku !== undefined && row.sku !== old.sku) return true
   if (row.unit !== null && row.unit !== undefined && row.unit !== old.unit) return true
+  if (row.productSpec && Object.entries(row.productSpec).some(([field,value]) =>
+    old.product_spec?.[field as keyof ProductSpec] !== value)) return true
   return Object.entries(row.prices ?? {}).some(([type, value]) => {
     return old.price_map[type] === undefined || Number(old.price_map[type]) !== value
   })
@@ -122,11 +127,32 @@ export async function stageImport(pool: Pool, actor: string, raw: unknown) {
           }
         }
       }
+      const specErrors: Array<{ rowNumber: number; message: string }> = []
+      if (payload.kind === 'catalog') {
+        for (const row of payload.rows) {
+          try {
+            normalizeProductSpec({ ...safeProductSpec(old.get(row.companyCode)?.product_spec), ...row.productSpec })
+          } catch (cause) {
+            specErrors.push({ rowNumber: row.rowNumber, message: cause instanceof Error ? cause.message : 'Quy cách không hợp lệ' })
+          }
+        }
+      }
+      if (specErrors.length) return { valid: false, batchId: null, errors: specErrors.slice(0, 100) }
       const samples: Array<Record<string, unknown>> = []
       let newCount = 0, changedCount = 0, unchangedCount = 0
+      let missingUnitCount = 0, changedUnitWithStock = 0
       for (const row of payload.rows) {
         const before = old.get(row.companyCode)
         const action = !before ? 'new' : rowChanges(row, before, payload.kind) ? 'changed' : 'unchanged'
+        const nextUnit = payload.kind === 'catalog'
+          ? (row.unit ?? before?.unit ?? (!before ? payload.defaultUnitForNew : null))
+          : before?.unit ?? null
+        const beforeSpec = safeProductSpec(before?.product_spec)
+        const afterSpec = payload.kind === 'catalog'
+          ? normalizeProductSpec({ ...beforeSpec, ...row.productSpec }) : beforeSpec
+        if (!nextUnit) missingUnitCount++
+        if (before?.quantity !== null && before?.quantity !== undefined &&
+            (before.unit ?? '').trim().toLocaleLowerCase('vi') !== (nextUnit ?? '').trim().toLocaleLowerCase('vi')) changedUnitWithStock++
         if (action === 'new') newCount++
         else if (action === 'changed') changedCount++
         else unchangedCount++
@@ -138,6 +164,10 @@ export async function stageImport(pool: Pool, actor: string, raw: unknown) {
           nextQuantity: payload.kind === 'inventory' ? row.quantity : before?.quantity ?? null,
           previousPrices: payload.kind === 'catalog' ? before?.price_map ?? {} : {},
           nextPrices: payload.kind === 'catalog' ? row.prices ?? {} : {},
+          previousUnit: before?.unit ?? null,
+          nextUnit,
+          previousCarton: piecesPerCarton(beforeSpec),
+          nextCarton: piecesPerCarton(afterSpec),
         })
       }
       const missing = await db.query<{ count: string }>(
@@ -149,6 +179,8 @@ export async function stageImport(pool: Pool, actor: string, raw: unknown) {
         newCount,
         changedCount,
         unchangedCount,
+        missingUnitCount,
+        changedUnitWithStock,
         absentCodesUnaffected: Number(missing.rows[0]?.count ?? 0),
         sample: samples,
       }
@@ -208,15 +240,19 @@ export async function commitImport(pool: Pool, actor: string, id: string) {
       }
       for (const row of payload.rows) {
         const old = previous.get(row.companyCode)
+        const nextSpec = payload.kind === 'catalog'
+          ? normalizeProductSpec({ ...safeProductSpec(old?.product_spec), ...row.productSpec }) : safeProductSpec(old?.product_spec)
         let productId = old?.id
         if (!productId) {
           const created = await db.query<{ id: string }>(
-            'INSERT INTO public.products(company_code) VALUES($1) RETURNING id', [row.companyCode],
+            'INSERT INTO public.products(company_code,unit,product_spec) VALUES($1,$2,$3::jsonb) RETURNING id',
+            [row.companyCode, payload.kind === 'catalog' ? (row.unit ?? payload.defaultUnitForNew) : null,
+              JSON.stringify(payload.kind === 'catalog' ? nextSpec : {})],
           )
           productId = created.rows[0].id
         }
         const priorProduct = old ? {
-          sku:old.sku,name:old.name,unit:old.unit,updated_at:old.updated_at,
+          sku:old.sku,name:old.name,unit:old.unit,product_spec:old.product_spec,updated_at:old.updated_at,
         } : null
         const previousPrices: Record<string, number | null> = {}
         const nextPrices: Record<string, number> = {}
@@ -230,12 +266,12 @@ export async function commitImport(pool: Pool, actor: string, id: string) {
           )
         } else {
           if (old) await db.query(
-            'UPDATE public.products SET sku=COALESCE($2,sku), name=COALESCE($3,name), unit=COALESCE($4,unit), updated_at=now() WHERE id=$1',
-            [productId,row.sku,row.name,row.unit],
+            'UPDATE public.products SET sku=COALESCE($2,sku), name=COALESCE($3,name), unit=COALESCE($4,unit), product_spec=COALESCE($5::jsonb,product_spec),updated_at=now() WHERE id=$1',
+            [productId,row.sku,row.name,row.unit,row.productSpec ? JSON.stringify(nextSpec) : null],
           )
           else await db.query(
-            'UPDATE public.products SET sku=$2,name=$3,unit=$4,updated_at=now() WHERE id=$1',
-            [productId,row.sku,row.name,row.unit],
+            'UPDATE public.products SET sku=$2,name=$3,unit=COALESCE($4,unit),product_spec=COALESCE($5::jsonb,product_spec),updated_at=now() WHERE id=$1',
+            [productId,row.sku,row.name,row.unit,row.productSpec ? JSON.stringify(nextSpec) : null],
           )
           for (const [type, amount] of Object.entries(row.prices ?? {})) {
             previousPrices[type] = old?.price_map[type] === undefined ? null : Number(old.price_map[type])
@@ -282,7 +318,7 @@ export async function commitImport(pool: Pool, actor: string, id: string) {
 
 interface AuditRow {
   company_code: string
-  previous_product: { sku:string|null;name:string|null;unit:string|null;updated_at:string } | null
+  previous_product: { sku:string|null;name:string|null;unit:string|null;product_spec?: ProductSpec;updated_at:string } | null
   previous_quantity: number | null
   previous_prices: Record<string,number|null>
   next_prices: Record<string,number>
@@ -334,8 +370,8 @@ export async function rollbackImport(pool: Pool, actor: string, id: string) {
         } else {
           const p = entry.previous_product
           await db.query(
-            'UPDATE public.products SET sku=$2,name=$3,unit=$4,updated_at=$5 WHERE id=$1',
-            [productId,p.sku,p.name,p.unit,p.updated_at],
+            'UPDATE public.products SET sku=$2,name=$3,unit=$4,updated_at=$5,product_spec=$6::jsonb WHERE id=$1',
+            [productId,p.sku,p.name,p.unit,p.updated_at,JSON.stringify(p.product_spec ?? {})],
           )
           for (const type of Object.keys(entry.next_prices ?? {})) {
             const amount = entry.previous_prices?.[type]

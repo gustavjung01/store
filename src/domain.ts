@@ -1,3 +1,4 @@
+import type { ProductSpec } from './productSpec'
 /** Shared STORE display rules. No fake products, prices, or quantities. */
 export interface PriceType {
   id: string
@@ -10,6 +11,7 @@ export interface ProductRecord {
   name: string | null
   unit: string | null
   category?: string | null
+  productSpec?: ProductSpec
   imageUrl: string | null
   quantity: number | null
   inventoryUpdatedAt: string | null
