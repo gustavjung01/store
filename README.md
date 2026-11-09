@@ -7,9 +7,10 @@ Repository duy nhất: https://github.com/gustavjung01/store
 ## Người dùng
 
 - Một ô tìm kiếm mã CTY, SKU, tên sản phẩm.
+- **Danh mục**: xem toàn bộ mã, lọc mã thiếu tên; Admin tạo/sửa sản phẩm với **mã CTY + tên hàng bắt buộc**, SKU/ĐVT/nhóm hàng tùy chọn. Sửa tên không làm đổi số tồn/giá.
 - Hiện tên, ĐVT, **giá mặc định**, tồn kho và thời gian nhập Excel.
 - Nút **Xem tất cả giá** để mở các bảng giá khác; không tự tạo giá.
-- Admin import `.xlsx` theo sheet và mapping cột; xem trước thay đổi, xác nhận nhập, lịch sử và hoàn tác lượt gần nhất.
+- Admin import `.xlsx` theo sheet và mapping cột; xem trước thay đổi, xác nhận nhập, lịch sử và hoàn tác lượt gần nhất. **Import danh mục sẽ chặn mã chưa có tên**; nhập tồn vẫn có thể tạo mã tạm chưa có tên để admin hoàn thiện sau.
 - Dữ liệu riêng tư cần Neon Auth và tài khoản được cấp quyền `viewer/admin`.
 - Nếu tài khoản do quản trị viên tạo chưa có mật khẩu: dùng **Chưa có mật khẩu / Quên mật khẩu?**, nhận email Neon Auth và thiết lập qua liên kết một lần; không lưu mật khẩu vào repo.
 
@@ -34,6 +35,7 @@ Hiện Neon Auth và schema đã được chuẩn bị trên **nhánh Neon phát
 - Vercel project `store` của `gustavjung01`: production triển khai theo GitHub comment `/deploy production` của Owner, không có auto-deploy.
 - Neon project `patient-feather-65846936`, nhánh `dev-store-auth-catalog`: Auth bật, migration mẫu `db/migrations/0001_store_catalog.sql` đã kiểm thử. Neon `main` chưa bị migrate.
 - Backend nguồn tại `server/api.ts` + config `neon.ts`. JWT và quyền được kiểm ở server, không tin client.
+- CRUD danh mục: `src/CatalogManager.tsx`, `server/catalogService.ts`, migration `0003_catalog_edit_audit.sql` và audit `catalog_edits`. Không đổi mã CTY sau khi tạo. Chưa áp migration này lên Neon production.
 - Source import tại `server/importValidation.ts`, `server/importService.ts`, `src/ExcelImport.tsx`, migration `0002_excel_imports.sql`. Chưa có dữ liệu công ty để import thử.
 - Tài liệu [quy trình Excel](docs/IMPORT_IMPLEMENTATION.md), giới hạn 3000 dòng mỗi lần, file tối đa 2 MB.
 - IndexedDB chỉ đọc sau khi user có session và được API kiểm quyền; xóa khi logout.

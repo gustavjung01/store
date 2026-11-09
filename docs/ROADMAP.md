@@ -16,7 +16,9 @@
 - [x] Source API Neon Functions read-only: `/me`, `/catalog/snapshot`, `/catalog/lookup`.
 - [x] Deploy Function trên Neon **dev branch**; HTTPS health 200, chưa login 401; SQL tra cứu đã chạy không lỗi trên bảng trống.
 - [ ] Test đầy đủ 403, phân quyền viewer/admin và trả sản phẩm thực sau khi Owner cấp tài khoản/dữ liệu.
-- [ ] Có tài khoản được duyệt và dữ liệu danh mục thật để kiểm nghiệm tra cứu.
+- [x] Đã viết màn Danh mục và API admin tạo/sửa mã CTY với tên bắt buộc, SKU/ĐVT/nhóm và nhật ký chỉnh sửa; có test PostgreSQL.
+- [ ] Nghiệm thu màn Danh mục qua tài khoản Admin, dữ liệu danh mục thật và điện thoại.
+- [ ] Có file danh mục công ty thật để kiểm nghiệm mã/tên/giá.
 - [ ] Duyệt migration production Neon và cấu hình Auth/Function trên production theo Owner.
 - [ ] Test mobile thật và offline/cache/logout; kiểm thử phân quyền e2e.
 
@@ -25,6 +27,7 @@
 - [x] Đã viết validation tồn mã CTY + số lượng; kiểm tra 0/NULL, trùng, âm, mã mới; test unit thành công.
 - [x] Đã viết backend transaction + audit + rollback gần nhất và migration trên Neon dev; cần kiểm thử e2e có tài khoản admin trước production.
 - [x] Backend tăng version sau confirm/rollback và PWA tải lại khi admin xác nhận; còn cần kiểm thử IndexedDB bằng tài khoản thực.
+- [x] Import danh mục chặn tạo sản phẩm mới thiếu tên; inventory-only vẫn có thể tạo mã tạm, cho phép hoàn thiện tên thủ công. Chặn rollback Excel nếu danh mục đã được chỉnh sửa thủ công sau đó.
 
 ## P3 — Vận hành
 - [ ] Phân quyền production, backup, giám sát, kiểm tra thiết bị thật, R2 ảnh READ-ONLY.

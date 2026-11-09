@@ -38,3 +38,12 @@ Dữ liệu tồn là **snapshot từ file Excel**, không phải tồn realtime
 | GET | `/admin/imports` | admin |
 
 Cấu trúc PostgreSQL ở `db/migrations/0001_store_catalog.sql` và `0002_excel_imports.sql`. Không có dữ liệu công ty hardcode trong repo.
+
+## Chuẩn tên sản phẩm (Danh mục)
+
+- Danh mục chuẩn là **mã CTY (Text, giữ số 0 đầu)** + **tên hàng đầy đủ**, kèm SKU/đơn vị tính/nhóm hàng khi có. Mã CTY duy nhất và **không đổi sau khi tạo**. Giá/tồn quản lý độc lập.
+- Trang **Danh mục** cho viewer xem danh sách, còn Admin được tạo mới hoặc bổ sung/sửa tên của mã tạm do nhập tồn. Có tìm kiếm mã, SKU, tên, thống kê mã thiếu tên và nhật ký chỉnh sửa.
+- Excel nhập danh mục có thể bỏ trống tên **chỉ khi mã đó đã có tên ở STORE**, để cập nhật giá không đổi tên cũ. Nếu một mã mới/đang thiếu tên không có tên trong Excel, toàn bộ preview bị từ chối (có số dòng) để tránh tạo sản phẩm không chuẩn.
+- **Riêng Excel tồn** vẫn được phép tạo mã tạm chưa có tên (vì nhiều file tồn chỉ có mã + số lượng). Trang Danh mục sẽ đánh dấu để Admin bổ sung.
+- Mọi chỉnh sửa thủ công tăng version `catalog_state` và ghi `catalog_edits` (người sửa, trước/sau); Excel rollback bị chặn nếu có chỉnh sửa thủ công sau batch nhằm tránh mất thông tin do người quản lý vừa sửa.
+- Migration bổ sung **`0003_catalog_edit_audit.sql`** chỉ dành cho Neon dev trước khi Owner duyệt production. Không được phép tự đổi tên thật hoặc tạo dữ liệu sản phẩm giả.
