@@ -22,7 +22,10 @@ if (!databaseUrl || !authBase || !jwksUrl) {
 const pool = new Pool({ connectionString: databaseUrl, max: 5 })
 attachDatabasePool(pool)
 const jwks = createRemoteJWKSet(new URL(jwksUrl))
-const allowedOrigins = new Set(['https://store-nu-opal.vercel.app'])
+const allowedOrigins = new Set([
+  'https://store-nu-opal.vercel.app',
+  'https://store-gustavjung01s-projects.vercel.app',
+])
 // Never allow localhost as a production CORS origin.
 if (process.env.NEON_BRANCH !== 'main') allowedOrigins.add('http://localhost:5173')
 
