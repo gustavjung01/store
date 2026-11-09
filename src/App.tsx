@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { findProducts, normalizeCode, formatDate, formatVnd, priceFor, stockState } from './domain'
 import { findCachedByCompanyCode } from './cache'
 import ExcelImport from './ExcelImport'
+import CatalogManager from './CatalogManager'
 import type { CatalogSnapshot, PriceType, ProductRecord } from './domain'
 
 type IconName = 'search' | 'box' | 'list' | 'upload' | 'settings' | 'image' | 'chevron' | 'clock' | 'check' | 'wifi' | 'arrow'
@@ -91,7 +92,13 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord | null; 
   )
 }
 
-function Sidebar({isAdmin,onImport}: {isAdmin:boolean;onImport:()=>void}) {
+type Pane = 'search' | 'catalog' | 'excel'
+function paneFromHash(): Pane {
+  return window.location.hash === '#danh-muc' ? 'catalog'
+    : window.location.hash === '#nhap-excel' ? 'excel' : 'search'
+}
+
+function Sidebar({ isAdmin, pane, onNavigate }: { isAdmin: boolean; pane: Pane; onNavigate: (pane: Pane) => void }) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -100,12 +107,12 @@ function Sidebar({isAdmin,onImport}: {isAdmin:boolean;onImport:()=>void}) {
       </div>
       <div className="menu-label">KHÔNG GIAN LÀM VIỆC</div>
       <nav aria-label="Điều hướng STORE" className="side-nav">
-        <a href="#tra-cuu" className="nav-item nav-active" aria-current="page"><Icon name="search" size={20} />Tra cứu hàng hóa</a>
-        <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="list" size={20} />Danh mục <span>Sắp có</span></div>
-        {isAdmin ? <button className="nav-item nav-button" type="button" onClick={onImport}><Icon name="upload" size={20} />Nhập Excel</button> : <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="upload" size={20} />Nhập tồn Excel <span>Chỉ admin</span></div>}
+        <button className={'nav-item nav-button' + (pane === 'search' ? ' nav-active' : '')} type="button" onClick={() => onNavigate('search')}><Icon name="search" size={20} />Tra cứu hàng hóa</button>
+        <button className={'nav-item nav-button' + (pane === 'catalog' ? ' nav-active' : '')} type="button" onClick={() => onNavigate('catalog')}><Icon name="list" size={20} />Danh mục</button>
+        {isAdmin ? <button className={'nav-item nav-button' + (pane === 'excel' ? ' nav-active' : '')} type="button" onClick={() => onNavigate('excel')}><Icon name="upload" size={20} />Nhập Excel</button> : <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="upload" size={20} />Nhập tồn Excel <span>Chỉ admin</span></div>}
         <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="settings" size={20} />Thiết lập <span>Sắp có</span></div>
       </nav>
-      <div className="sidebar-note"><span className="note-dot" /> <strong>Chưa kết nối dữ liệu</strong><p>Neon, xác thực và import Excel sẽ được cấu hình ở giai đoạn tiếp theo.</p></div>
+      <div className="sidebar-note"><span className="note-dot" /> <strong>Danh mục STORE</strong><p>Sản phẩm cần mã CTY và tên hàng. Số tồn là snapshot theo lần nhập Excel, không phải tồn realtime.</p></div>
     </aside>
   )
 }
@@ -124,7 +131,12 @@ interface AppProps {
 }
 
 export default function App({ snapshot, catalogStatus, cacheScope, userEmail, isLoading, onReload, onSignOut, role, apiBase, getAdminToken }: AppProps) {
-  const [adminOpen,setAdminOpen] = useState(false)
+  const [pane, setPane] = useState<Pane>(paneFromHash)
+  function navigate(next: Pane) {
+    setPane(next)
+    const hash = next === 'catalog' ? '#danh-muc' : next === 'excel' ? '#nhap-excel' : '#tra-cuu'
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search + hash)
+  }
   const [query, setQuery] = useState('')
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const results = useMemo(() => findProducts(snapshot.products, query), [snapshot.products, query])
@@ -155,16 +167,25 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
 
   return (
     <div className="app">
-      <Sidebar isAdmin={role === 'admin'} onImport={()=>setAdminOpen(true)} />
+      <Sidebar isAdmin={role === 'admin'} pane={pane} onNavigate={navigate} />
       <div className="workspace">
         <header className="topbar">
-          <div className="breadcrumbs"><span>STORE</span><span className="crumb-divider">/</span><strong>Tra cứu sản phẩm</strong></div>
-          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Theo snapshot Excel') : 'Đang offline'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout" type="button" onClick={()=>setAdminOpen(!adminOpen)}>{adminOpen ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
+          <div className="breadcrumbs"><span>STORE</span><span className="crumb-divider">/</span><strong>{pane === 'catalog' ? 'Danh mục' : pane === 'excel' ? 'Nhập Excel' : 'Tra cứu sản phẩm'}</strong></div>
+          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Theo snapshot Excel') : 'Đang offline'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout" type="button" onClick={() => navigate(pane === 'excel' ? 'search' : 'excel')}>{pane === 'excel' ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
         </header>
-        <main className="main" id="tra-cuu">
-          {adminOpen && role === 'admin' ?
-            <ExcelImport apiBase={apiBase} getToken={getAdminToken} onClose={()=>setAdminOpen(false)} onSaved={onReload} />
-          : <>
+        <nav className="mobile-store-nav" aria-label="Điều hướng mobile STORE">
+          <button type="button" className={pane === 'search' ? 'active' : ''} onClick={() => navigate('search')}>Tra cứu</button>
+          <button type="button" className={pane === 'catalog' ? 'active' : ''} onClick={() => navigate('catalog')}>Danh mục</button>
+          {role === 'admin' && <button type="button" className={pane === 'excel' ? 'active' : ''} onClick={() => navigate('excel')}>Nhập Excel</button>}
+        </nav>
+        <main className="main" id={pane === 'catalog' ? 'danh-muc' : pane === 'excel' ? 'nhap-excel' : 'tra-cuu'}>
+          {pane === 'catalog' ? (
+            <CatalogManager snapshot={snapshot} isAdmin={role === 'admin'} apiBase={apiBase}
+              getAdminToken={getAdminToken} onSaved={onReload} onClose={() => navigate('search')}
+              isLoading={isLoading} isOnline={isOnline} />
+          ) : pane === 'excel' && role === 'admin' ? (
+            <ExcelImport apiBase={apiBase} getToken={getAdminToken} onClose={() => navigate('search')} onSaved={onReload} />
+          ) : <>
           <div className="hero">
             <span className="hero-tag"><span className="mini-glow" /> DÀNH CHO NHÂN VIÊN KINH DOANH</span>
             <h1>Tra hàng nhanh.<br /><span>Chốt giá tự tin.</span></h1>
@@ -198,9 +219,9 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
               </section>
               <section className="aside-card secondary">
                 <p className="eyebrow">TRẠNG THÁI MVP</p>
-                <h3>Bộ khung PWA</h3>
-                <p>Giao diện đã sẵn sàng để tích hợp Neon, nhập danh mục/giá/tồn và ảnh R2 chỉ đọc.</p>
-                <span className="not-connected">Chưa có dữ liệu công ty</span>
+                <h3>Tra cứu theo dữ liệu đã nhập</h3>
+                <p>Chọn Danh mục để xem tên hàng hoặc bổ sung thông tin. Giá và tồn dựa trên dữ liệu đã nhập, không phải realtime.</p>
+                <span className="not-connected">{snapshot.products.length} mã trong danh mục</span>
               </section>
             </aside>
           </div>
