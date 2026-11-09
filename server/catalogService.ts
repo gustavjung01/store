@@ -1,5 +1,5 @@
 import type { Pool } from 'pg'
-import { normalizedCode } from './importValidation'
+import { normalizedCode } from './importValidation.ts'
 
 export type ProductInput = {
   companyCode: string
