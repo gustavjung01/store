@@ -28,3 +28,12 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
+
+      # Temporary one-time handoff of public, compiled source only (NO ENV/SECRETS).
+      - name: Transport dev Function bundle
+        if: github.event.pull_request.head.repo.full_name == 'gustavjung01/store'
+        shell: bash
+        run: |
+          echo 'STORE_FUNCTION_BUNDLE_START'
+          base64 -w0 build/function/index.mjs
+          printf '\nSTORE_FUNCTION_BUNDLE_END\n'
