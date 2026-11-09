@@ -145,7 +145,9 @@ export default function CatalogManager({
       if (!controls.length) return
       const first = controls[0]
       const last = controls[controls.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
+      if (!dialogRef.current.contains(document.activeElement)) {
+        event.preventDefault(); (event.shiftKey ? last : first).focus()
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault(); last.focus()
       } else if (!event.shiftKey && document.activeElement === last) {
         event.preventDefault(); first.focus()
