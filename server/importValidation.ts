@@ -1,3 +1,6 @@
+import { validateSpecPatch } from '../src/productSpec.ts'
+import type { ProductSpec } from '../src/productSpec.ts'
+
 /** Strict server-side validation. Never trust XLSX mappings or numbers from the browser. */
 export type ImportKind = 'inventory' | 'catalog'
 export type PriceDefinition = { id: string; label: string }
@@ -8,6 +11,7 @@ export type ImportRow = {
   name?: string | null
   sku?: string | null
   unit?: string | null
+  productSpec?: Partial<ProductSpec>
   prices?: Record<string, number>
 }
 export type ImportPayload = {
@@ -16,6 +20,7 @@ export type ImportPayload = {
   sheet: string
   priceTypes: PriceDefinition[]
   defaultPriceTypeId: string | null
+  defaultUnitForNew: string | null
   rows: ImportRow[]
 }
 export type ImportIssue = { rowNumber: number; message: string }
@@ -97,6 +102,8 @@ export function validateImport(raw: unknown): { payload: ImportPayload | null; i
   if (kind === 'catalog' && defaultId && !priceTypes.some(p => p.id === defaultId)) {
     issues.push({ rowNumber: 0, message: 'Giá mặc định phải nằm trong các cột giá được chọn' })
   }
+  const defaultUnitForNew = kind === 'catalog'
+    ? cleanText(data.defaultUnitForNew, 60, 0, 'ĐVT mặc định cho mã mới', issues) : null
   if (!Array.isArray(data.rows) || data.rows.length < 1 || data.rows.length > 3000) {
     issues.push({ rowNumber: 0, message: 'Cần từ 1 đến 3000 dòng mỗi lượt import' })
     return { payload: null, issues }
@@ -123,6 +130,15 @@ export function validateImport(raw: unknown): { payload: ImportPayload | null; i
       row.name = cleanText(r.name, 400, num, 'Tên hàng', issues)
       row.sku = cleanText(r.sku, 120, num, 'SKU', issues)
       row.unit = cleanText(r.unit, 60, num, 'ĐVT', issues)
+      if (r.productSpec !== undefined) {
+        try {
+          const patch = validateSpecPatch(r.productSpec)
+          const supplied = Object.fromEntries(Object.entries(patch).filter(([,value]) => value !== null))
+          if (Object.keys(supplied).length > 0) row.productSpec = supplied as Partial<ProductSpec>
+        } catch (cause) {
+          issues.push({ rowNumber: num, message: cause instanceof Error ? cause.message : 'Quy cách không hợp lệ' })
+        }
+      }
       const rawPrices = r.prices && typeof r.prices === 'object' && !Array.isArray(r.prices) ? r.prices as Record<string, unknown> : {}
       row.prices = {}
       for (const id of Object.keys(rawPrices)) {
@@ -144,6 +160,7 @@ export function validateImport(raw: unknown): { payload: ImportPayload | null; i
       sheet: sheet!,
       priceTypes,
       defaultPriceTypeId: kind === 'catalog' ? defaultId : null,
+      defaultUnitForNew,
       rows,
     },
   }
