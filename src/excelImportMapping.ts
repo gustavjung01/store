@@ -1,4 +1,4 @@
-import { priceIdFromHeader, validateImport } from '../server/importValidation'
+import { priceIdFromHeader, validateImport } from '../server/importValidation.ts'
 import type { ImportKind, ImportPayload, ImportIssue } from '../server/importValidation'
 
 export type ExcelCell = string | number | boolean | Date | null | undefined
