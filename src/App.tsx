@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { findProducts, normalizeCode, formatDate, formatVnd, priceFor, stockState } from './domain'
 import { findCachedByCompanyCode } from './cache'
@@ -25,30 +25,30 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{drawing[name]}</svg>
 }
 
-function ProductPreview({ product, snapshot }: { product: ProductRecord | null; snapshot: CatalogSnapshot }) {
+function ProductPreview({ product, snapshot }: { product: ProductRecord; snapshot: CatalogSnapshot }) {
   const [allPrices, setAllPrices] = useState(false)
   const defaultType = snapshot.priceTypes.find((p) => p.id === snapshot.defaultPriceTypeId) ?? null
-  const quantity = product?.quantity ?? null
+  const quantity = product.quantity
   const state = stockState(quantity)
   const stockLabel = state === 'available' ? 'Còn hàng' : state === 'empty' ? 'Hết hàng' : 'Chưa có dữ liệu'
 
   return (
     <section className="result-card" aria-label="Chi tiết sản phẩm">
       <div className="result-eyebrow">
-        <span className={product ? 'label-green' : 'label-neutral'}>{product ? 'Kết quả tra cứu' : 'Khuôn hiển thị — chưa có dữ liệu'}</span>
-        <span className="result-version">Snapshot Excel</span>
+        <span className="label-green">Thông tin hàng hóa</span>
+        <span className="result-version">Dữ liệu đã đồng bộ</span>
       </div>
       <div className="product-main">
         <div className="product-image">
-          {product?.imageUrl
+          {product.imageUrl
             ? <img src={product.imageUrl} alt={product.name || 'Hình sản phẩm'} loading="lazy" referrerPolicy="no-referrer" />
             : <Icon name="image" size={33} />}
         </div>
         <div className="product-info">
           <p className="eyebrow">THÔNG TIN SẢN PHẨM</p>
-          <h2>{product?.name || (product ? 'Chưa có tên hàng' : 'Tên hàng sẽ hiện ở đây')}</h2>
-          <p className="muted">Mã CTY: <strong>{product?.companyCode || '—'}</strong></p>
-          <p className="muted">ĐVT: {product?.unit || 'Chưa có dữ liệu'}</p>
+          <h2>{product.name || 'Chưa có tên hàng'}</h2>
+          <p className="muted">Mã CTY: <strong>{product.companyCode}</strong></p>
+          <p className="muted">ĐVT: {product.unit || 'Chưa có dữ liệu'}</p>
         </div>
       </div>
       <div className="metric-row">
@@ -69,7 +69,7 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord | null; 
           <span>{defaultType?.label || 'GIÁ MẶC ĐỊNH'}</span>
           <span className="price-flag">ĐANG HIỂN THỊ</span>
         </div>
-        <strong className="main-price">{product ? formatVnd(priceFor(product, snapshot.defaultPriceTypeId)) : 'Chưa có giá'}</strong>
+        <strong className="main-price">{formatVnd(priceFor(product, snapshot.defaultPriceTypeId))}</strong>
         <button className="price-toggle" type="button" aria-expanded={allPrices} onClick={() => setAllPrices(!allPrices)}>
           {allPrices ? 'Thu gọn bảng giá' : 'Xem tất cả giá'}
           <span className={allPrices ? 'rotate-icon' : ''}><Icon name="chevron" size={18} /></span>
@@ -81,7 +81,7 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord | null; 
               : snapshot.priceTypes.map((type: PriceType) => (
                 <div className="price-list-row" key={type.id}>
                   <span>{type.label}{type.id === snapshot.defaultPriceTypeId ? ' · mặc định' : ''}</span>
-                  <strong>{product ? formatVnd(priceFor(product, type.id)) : 'Chưa có giá'}</strong>
+                  <strong>{formatVnd(priceFor(product, type.id))}</strong>
                 </div>
               ))}
           </div>
@@ -105,14 +105,13 @@ function Sidebar({ isAdmin, pane, onNavigate }: { isAdmin: boolean; pane: Pane; 
         <span className="brand-icon"><Icon name="box" size={27} /></span>
         <div><strong>STORE</strong><span>SALES INVENTORY</span></div>
       </div>
-      <div className="menu-label">KHÔNG GIAN LÀM VIỆC</div>
+      <div className="menu-label">ĐIỀU HƯỚNG</div>
       <nav aria-label="Điều hướng STORE" className="side-nav">
-        <button className={'nav-item nav-button' + (pane === 'search' ? ' nav-active' : '')} type="button" onClick={() => onNavigate('search')}><Icon name="search" size={20} />Tra cứu hàng hóa</button>
-        <button className={'nav-item nav-button' + (pane === 'catalog' ? ' nav-active' : '')} type="button" onClick={() => onNavigate('catalog')}><Icon name="list" size={20} />Danh mục</button>
-        {isAdmin ? <button className={'nav-item nav-button' + (pane === 'excel' ? ' nav-active' : '')} type="button" onClick={() => onNavigate('excel')}><Icon name="upload" size={20} />Nhập Excel</button> : <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="upload" size={20} />Nhập tồn Excel <span>Chỉ admin</span></div>}
-        <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="settings" size={20} />Thiết lập <span>Sắp có</span></div>
+        <button className={'nav-item nav-button' + (pane === 'search' ? ' nav-active' : '')} type="button" aria-current={pane === 'search' ? 'page' : undefined} onClick={() => onNavigate('search')}><Icon name="search" size={20} />Tra cứu hàng hóa</button>
+        <button className={'nav-item nav-button' + (pane === 'catalog' ? ' nav-active' : '')} type="button" aria-current={pane === 'catalog' ? 'page' : undefined} onClick={() => onNavigate('catalog')}><Icon name="list" size={20} />Danh mục</button>
+        {isAdmin ? <button className={'nav-item nav-button' + (pane === 'excel' ? ' nav-active' : '')} type="button" aria-current={pane === 'excel' ? 'page' : undefined} onClick={() => onNavigate('excel')}><Icon name="upload" size={20} />Nhập Excel</button> : <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="upload" size={20} />Nhập tồn Excel <span>Chỉ admin</span></div>}
       </nav>
-      <div className="sidebar-note"><span className="note-dot" /> <strong>Danh mục STORE</strong><p>Sản phẩm cần mã CTY và tên hàng. Số tồn là snapshot theo lần nhập Excel, không phải tồn realtime.</p></div>
+      <div className="sidebar-note"><span className="note-dot" /> <strong>Ảnh chụp tồn kho</strong><p>Số tồn lấy từ lần nhập Excel gần nhất, không phải tồn realtime.</p></div>
     </aside>
   )
 }
@@ -132,12 +131,21 @@ interface AppProps {
 
 export default function App({ snapshot, catalogStatus, cacheScope, userEmail, isLoading, onReload, onSignOut, role, apiBase, getAdminToken }: AppProps) {
   const [pane, setPane] = useState<Pane>(paneFromHash)
+  const mainRef = useRef<HTMLElement>(null)
+  const [editingField, setEditingField] = useState(false)
+  useEffect(() => {
+    const onHashChange = () => setPane(paneFromHash())
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
   function navigate(next: Pane) {
     setPane(next)
+    mainRef.current?.scrollTo({ top: 0, behavior: 'auto' })
     const hash = next === 'catalog' ? '#danh-muc' : next === 'excel' ? '#nhap-excel' : '#tra-cuu'
     window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search + hash)
   }
   const [query, setQuery] = useState('')
+  const [selectedCode, setSelectedCode] = useState<string | null>(null)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const results = useMemo(() => findProducts(snapshot.products, query), [snapshot.products, query])
   const [exactResult, setExactResult] = useState<ProductRecord | null>(null)
@@ -151,8 +159,9 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
     }
     return () => { active = false }
   }, [cacheScope, query, snapshot])
-  const product = exactResult && normalizeCode(exactResult.companyCode) === normalizeCode(query)
-    ? exactResult : results[0] ?? null
+  const selectedResult = results.find((item) => item.companyCode === selectedCode)
+  const product = selectedResult ?? (exactResult && normalizeCode(exactResult.companyCode) === normalizeCode(query)
+    ? exactResult : results[0] ?? null)
 
   useEffect(() => {
     const online = () => setIsOnline(true)
@@ -166,19 +175,19 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
   }, [])
 
   return (
-    <div className="app">
+    <div className={'app' + (editingField ? ' is-editing' : '')}
+      onFocusCapture={(event) => {
+        const target = event.target
+        setEditingField(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)
+      }}
+      onBlurCapture={() => setEditingField(false)}>
       <Sidebar isAdmin={role === 'admin'} pane={pane} onNavigate={navigate} />
       <div className="workspace">
         <header className="topbar">
-          <div className="breadcrumbs"><span>STORE</span><span className="crumb-divider">/</span><strong>{pane === 'catalog' ? 'Danh mục' : pane === 'excel' ? 'Nhập Excel' : 'Tra cứu sản phẩm'}</strong></div>
-          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Theo snapshot Excel') : 'Đang offline'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout" type="button" onClick={() => navigate(pane === 'excel' ? 'search' : 'excel')}>{pane === 'excel' ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
+          <div className="breadcrumbs"><span className="mobile-brand"><span className="mobile-brand-mark"><Icon name="box" size={19} /></span>STORE</span><span className="desktop-crumb">STORE <span className="crumb-divider">/</span></span><strong>{pane === 'catalog' ? 'Danh mục' : pane === 'excel' ? 'Nhập Excel' : 'Tra cứu'}</strong></div>
+          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Có mạng') : 'Ngoại tuyến'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout admin-shortcut" type="button" onClick={() => navigate(pane === 'excel' ? 'search' : 'excel')}>{pane === 'excel' ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
         </header>
-        <nav className="mobile-store-nav" aria-label="Điều hướng mobile STORE">
-          <button type="button" className={pane === 'search' ? 'active' : ''} onClick={() => navigate('search')}>Tra cứu</button>
-          <button type="button" className={pane === 'catalog' ? 'active' : ''} onClick={() => navigate('catalog')}>Danh mục</button>
-          {role === 'admin' && <button type="button" className={pane === 'excel' ? 'active' : ''} onClick={() => navigate('excel')}>Nhập Excel</button>}
-        </nav>
-        <main className="main" id={pane === 'catalog' ? 'danh-muc' : pane === 'excel' ? 'nhap-excel' : 'tra-cuu'}>
+        <main ref={mainRef} className="main" id={pane === 'catalog' ? 'danh-muc' : pane === 'excel' ? 'nhap-excel' : 'tra-cuu'}>
           {pane === 'catalog' ? (
             <CatalogManager snapshot={snapshot} isAdmin={role === 'admin'} apiBase={apiBase}
               getAdminToken={getAdminToken} onSaved={onReload} onClose={() => navigate('search')}
@@ -187,46 +196,52 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
             <ExcelImport apiBase={apiBase} getToken={getAdminToken} onClose={() => navigate('search')} onSaved={onReload} />
           ) : <>
           <div className="hero">
-            <span className="hero-tag"><span className="mini-glow" /> DÀNH CHO NHÂN VIÊN KINH DOANH</span>
-            <h1>Tra hàng nhanh.<br /><span>Chốt giá tự tin.</span></h1>
-            <p>Một mã hàng, một giá mặc định, số tồn rõ ràng. Cần giá khác thì mở bảng giá tổng.</p>
+            <span className="hero-tag">TRA CỨU HÀNG HÓA</span>
+            <h1>Mã hàng, giá & <span>tồn kho</span></h1>
+            <p>Nhập mã công ty hoặc tên hàng để xem thông tin đã đồng bộ.</p>
           </div>
-          <div className="sync-row" role="status"><span>{isLoading ? 'Đang tải dữ liệu STORE...' : (catalogStatus || 'Danh mục chưa có dữ liệu nhập Excel')}</span><button type="button" onClick={onReload} disabled={isLoading || !isOnline}>Đồng bộ lại</button></div>
+          <div className="sync-row" role="status"><span><Icon name="clock" size={16} />{!isOnline ? 'Đang dùng dữ liệu đã lưu trên máy, nếu có' : isLoading ? 'Đang đồng bộ dữ liệu...' : (catalogStatus || 'Chưa có dữ liệu danh mục được đồng bộ')}</span><button type="button" onClick={onReload} disabled={isLoading || !isOnline}>Làm mới</button></div>
           <div className="columns">
             <div className="left-column">
               <section className="search-panel" aria-labelledby="search-title">
-                <div className="panel-title"><div><p className="eyebrow">TRA CỨU</p><h2 id="search-title">Tìm sản phẩm</h2></div><span className="shortcut-hint">Mã CTY ưu tiên</span></div>
+                <div className="panel-title"><div><h2 id="search-title">Tìm sản phẩm</h2></div><span className="shortcut-hint">Ưu tiên mã CTY</span></div>
                 <label htmlFor="store-search" className="field-label">Mã CTY, SKU hoặc tên hàng</label>
                 <div className="search-control">
                   <Icon name="search" size={22} />
-                  <input id="store-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} autoComplete="off" spellCheck={false} placeholder="Nhập mã sản phẩm..." />
+                  <input id="store-search" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedCode(null) }} autoComplete="off" spellCheck={false} placeholder="Nhập mã hoặc tên hàng..." />
                 </div>
-                <div className="search-tags"><span>Tìm chính xác theo mã</span><span>Gợi ý theo tên</span><span>Hỗ trợ số 0 đầu</span></div>
+                {query.trim() && results.length > 1 ? <div className="search-suggestions" aria-label="Các sản phẩm phù hợp">
+                  <div className="suggestions-heading">{Math.min(6, results.length)} gợi ý phù hợp · Gõ thêm để lọc</div>
+                  {results.slice(0, 6).map((item) => (
+                    <button type="button" key={item.companyCode} className={'suggestion' + (product?.companyCode === item.companyCode ? ' chosen' : '')}
+                      aria-pressed={product?.companyCode === item.companyCode}
+                      onClick={() => setSelectedCode(item.companyCode)}>
+                      <span><strong>{item.companyCode}</strong><small>{item.name || 'Chưa có tên hàng'}</small></span>
+                      <Icon name="arrow" size={16} />
+                    </button>
+                  ))}
+                </div> : null}
               </section>
               {query.trim() !== '' && !product && (
-                <div className="search-warning" role="status"><Icon name="wifi" size={17} />{snapshot.products.length === 0 ? 'Chưa có danh mục được nhập Excel.' : 'Không tìm thấy sản phẩm theo từ khóa này.'}</div>
+                <div className="search-warning" role="status"><Icon name="search" size={17} />{snapshot.products.length === 0 ? 'Chưa có danh mục được nhập Excel.' : 'Không tìm thấy sản phẩm theo từ khóa này.'}</div>
               )}
-              <ProductPreview product={product} snapshot={snapshot} />
+              {product ? <ProductPreview key={product.companyCode} product={product} snapshot={snapshot} /> : query.trim() ? null : (
+                <section className="search-empty" aria-label="Hướng dẫn tra cứu">
+                  <span className="empty-mark"><Icon name="search" size={24} /></span>
+                  <h2>Sẵn sàng tra cứu</h2>
+                  <p>Nhập mã CTY, SKU hoặc tên sản phẩm phía trên. Thông tin chỉ hiển thị sau khi tìm thấy mã thực tế.</p>
+                  <span>{snapshot.products.length.toLocaleString('vi-VN')} mã trong danh mục đã đồng bộ</span>
+                </section>
+              )}
             </div>
-            <aside className="right-column" aria-label="Thông tin hệ thống">
-              <section className="aside-card">
-                <span className="aside-icon"><Icon name="check" size={20} /></span>
-                <h3>Thiết kế cho tốc độ</h3>
-                <p>Gõ mã để tìm, nhìn ngay giá được chọn mặc định và số tồn theo Excel.</p>
-                <div className="feature-line"><span>01</span><p>Tra cứu qua IndexedDB sau khi đăng nhập và đồng bộ.</p></div>
-                <div className="feature-line"><span>02</span><p>Đổi sang “Tất cả giá” ngay trên thẻ sản phẩm.</p></div>
-                <div className="feature-line"><span>03</span><p>Hiển thị rõ thời điểm nhập dữ liệu tồn kho.</p></div>
-              </section>
-              <section className="aside-card secondary">
-                <p className="eyebrow">TRẠNG THÁI MVP</p>
-                <h3>Tra cứu theo dữ liệu đã nhập</h3>
-                <p>Chọn Danh mục để xem tên hàng hoặc bổ sung thông tin. Giá và tồn dựa trên dữ liệu đã nhập, không phải realtime.</p>
-                <span className="not-connected">{snapshot.products.length} mã trong danh mục</span>
-              </section>
-            </aside>
           </div>
           </>}
         </main>
+        <nav className="mobile-store-nav" aria-label="Điều hướng chính trên điện thoại">
+          <button type="button" className={pane === 'search' ? 'active' : ''} aria-current={pane === 'search' ? 'page' : undefined} onClick={() => navigate('search')}><Icon name="search" size={21} /><span>Tra cứu</span></button>
+          <button type="button" className={pane === 'catalog' ? 'active' : ''} aria-current={pane === 'catalog' ? 'page' : undefined} onClick={() => navigate('catalog')}><Icon name="list" size={21} /><span>Danh mục</span></button>
+          {role === 'admin' && <button type="button" className={pane === 'excel' ? 'active' : ''} aria-current={pane === 'excel' ? 'page' : undefined} onClick={() => navigate('excel')}><Icon name="upload" size={21} /><span>Nhập Excel</span></button>}
+        </nav>
         <footer className="footer"><span>STORE · Ứng dụng tra cứu bán hàng</span><span>Snapshot Excel, không phải tồn realtime</span></footer>
       </div>
     </div>
