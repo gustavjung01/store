@@ -28,12 +28,21 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
-
-      # Temporary one-time handoff of public, compiled source only (NO ENV/SECRETS).
-      - name: Transport dev Function bundle
+      - name: Smoke test Neon development Function
         if: github.event.pull_request.head.repo.full_name == 'gustavjung01/store'
         shell: bash
         run: |
-          echo 'STORE_FUNCTION_BUNDLE_START'
-          base64 -w0 build/function/index.mjs
-          printf '\nSTORE_FUNCTION_BUNDLE_END\n'
+          set -euo pipefail
+          base='https://br-lucky-violet-aznxmc4n-storeapi.compute.c-3.ap-southeast-1.aws.neon.tech/'
+          health="$(curl --max-time 30 --retry 2 --silent --show-error --output /tmp/store-health.txt --write-out '%{http_code}' "${base}health")"
+          echo "Health HTTP status: $health"
+          if [[ "$health" != '200' ]]; then
+            echo '::error::Neon development Function did not pass health check'
+            exit 1
+          fi
+          denied="$(curl --max-time 30 --retry 2 --silent --show-error --output /tmp/store-me.txt --write-out '%{http_code}' "${base}me")"
+          echo "Unauthenticated /me HTTP status: $denied"
+          if [[ "$denied" != '401' ]]; then
+            echo '::error::Neon development Function did not deny anonymous access'
+            exit 1
+          fi
