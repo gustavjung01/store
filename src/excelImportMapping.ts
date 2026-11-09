@@ -1,5 +1,6 @@
 import { priceIdFromHeader, validateImport } from '../server/importValidation.ts'
 import type { ImportKind, ImportPayload, ImportIssue } from '../server/importValidation'
+import type { ProductSpec } from './productSpec'
 
 export type ExcelCell = string | number | boolean | Date | null | undefined
 export type ExcelSheet = { sheet: string; data: ExcelCell[][] }
@@ -9,6 +10,8 @@ export type ColumnSelection = {
   name: number
   sku: number
   unit: number
+  specColumns?: Partial<Record<keyof ProductSpec, number>>
+  defaultUnitForNew?: string | null
   prices: number[]
   defaultPriceColumn: number
 }
@@ -32,12 +35,14 @@ export function buildMappedImport(
   if (select.code < 0 || (kind === 'inventory' && select.quantity < 0)) {
     return { payload: null, issues: [{ rowNumber: 0, message: 'Cần chọn cột mã CTY và số tồn' }] }
   }
-  if (kind === 'catalog' && !select.prices.length && select.name < 0 && select.sku < 0 && select.unit < 0) {
-    return { payload: null, issues: [{ rowNumber: 0, message: 'Chọn ít nhất tên, SKU, ĐVT hoặc một cột giá' }] }
+  const mappedSpecs = Object.entries(select.specColumns ?? {})
+    .filter((entry): entry is [keyof ProductSpec, number] => Number.isInteger(entry[1]) && entry[1] >= 0)
+  if (kind === 'catalog' && !select.prices.length && select.name < 0 && select.sku < 0 && select.unit < 0 && !mappedSpecs.length) {
+    return { payload: null, issues: [{ rowNumber: 0, message: 'Chọn ít nhất tên, SKU, ĐVT, quy cách hoặc một cột giá' }] }
   }
   const fields = [select.code, ...(kind === 'inventory'
     ? [select.quantity]
-    : [select.name, select.sku, select.unit, ...select.prices])].filter(x => x >= 0)
+    : [select.name, select.sku, select.unit, ...mappedSpecs.map(([,col]) => col), ...select.prices])].filter(x => x >= 0)
   if (new Set(fields).size !== fields.length) {
     return { payload: null, issues: [{ rowNumber: 0, message: 'Một cột Excel không được mapping vào nhiều trường' }] }
   }
@@ -69,6 +74,12 @@ export function buildMappedImport(
       if (select.name >= 0) row.name = cells[select.name] ?? null
       if (select.sku >= 0) row.sku = cells[select.sku] ?? null
       if (select.unit >= 0) row.unit = cells[select.unit] ?? null
+      const productSpec: Record<string, unknown> = {}
+      for (const [field, column] of mappedSpecs) {
+        const value = cells[column]
+        if (value !== null && value !== undefined && value !== '') productSpec[field] = value
+      }
+      if (Object.keys(productSpec).length) row.productSpec = productSpec
       const prices: Record<string,unknown> = {}
       for (const col of select.prices) {
         const labelId = priceIdFromHeader(columnHeader(sheet.data,headerRow,col))
@@ -85,6 +96,8 @@ export function buildMappedImport(
     : null
   return validateImport({
     kind, filename, sheet: sheet.sheet, priceTypes: kind === 'catalog' ? priceTypes : [],
-    defaultPriceTypeId: defaultId, rows,
+    defaultPriceTypeId: defaultId,
+    defaultUnitForNew: kind === 'catalog' ? select.defaultUnitForNew ?? null : null,
+    rows,
   })
 }
