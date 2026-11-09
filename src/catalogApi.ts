@@ -1,6 +1,6 @@
 import type { CatalogSnapshot, ProductRecord, PriceType } from './domain'
 
-type Page = CatalogSnapshot & { nextCursor: string | null }
+type Page = CatalogSnapshot & { nextCursor: string | null; version: string }
 type AppMember = { role: 'viewer' | 'admin' }
 
 async function authorizedFetch(apiBase: string, path: string, jwt: string): Promise<Response> {
@@ -37,7 +37,7 @@ function validPage(value: unknown): value is Page {
   const p = value as Partial<Page>
   return Array.isArray(p.products) && Array.isArray(p.priceTypes) &&
     (p.defaultPriceTypeId === null || typeof p.defaultPriceTypeId === 'string') &&
-    typeof p.syncedAt === 'string' &&
+    typeof p.syncedAt === 'string' && typeof p.version === 'string' &&
     (p.nextCursor === null || typeof p.nextCursor === 'string')
 }
 
@@ -45,6 +45,7 @@ function validPage(value: unknown): value is Page {
 export async function downloadCatalog(apiBase: string, jwt: string): Promise<CatalogSnapshot> {
   const products: ProductRecord[] = []
   let cursor: string | null = null
+  let initialVersion: string | null = null
   let types: PriceType[] = []
   let defaultType: string | null = null
   let syncedAt: string | null = null
@@ -54,6 +55,8 @@ export async function downloadCatalog(apiBase: string, jwt: string): Promise<Cat
     const res = await authorizedFetch(apiBase, query, jwt)
     const body: unknown = await res.json()
     if (!validPage(body)) throw new Error('Dữ liệu trả về từ STORE không đúng cấu trúc')
+    if (initialVersion !== null && body.version !== initialVersion) throw new Error('Dữ liệu STORE đã đổi khi đang đồng bộ, vui lòng đồng bộ lại')
+    initialVersion = body.version
     // Defensive validation: never persist fabricated or malformed quantities.
     for (const product of body.products) {
       if (typeof product?.companyCode !== 'string' ||
