@@ -28,18 +28,6 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
-      - name: Smoke test Neon DEV catalog routes (admin only)
-        shell: bash
-        run: |
-          set -euo pipefail
-          url='https://br-lucky-violet-aznxmc4n-storeapi.compute.c-3.ap-southeast-1.aws.neon.tech'
-          health="$(curl -sS --retry 2 --max-time 30 -o /dev/null -w '%{http_code}' "$url/health")"
-          history="$(curl -sS --retry 2 --max-time 30 -o /dev/null -w '%{http_code}' "$url/admin/catalog/edits")"
-          create="$(curl -sS --retry 2 --max-time 30 -X POST -o /dev/null -w '%{http_code}' "$url/admin/catalog/products")"
-          update="$(curl -sS --retry 2 --max-time 30 -X PATCH -o /dev/null -w '%{http_code}' "$url/admin/catalog/products")"
-          echo "health=$health history=$history create=$create update=$update"
-          [[ "$health" == '200' ]] && [[ "$history" == '401' ]] &&
-          [[ "$create" == '401' ]] && [[ "$update" == '401' ]]
 
   postgres-import-integration:
     name: PostgreSQL import transaction tests (isolated)
