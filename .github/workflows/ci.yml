@@ -28,6 +28,15 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
+      # Temporary transfer for approved DEV hotfix. No environment or secret files.
+      - name: Export reviewed dev Function bundle
+        shell: bash
+        run: |
+          echo 'STORE_JWT_ISSUER_FIX_BUNDLE_START'
+          base64 -w0 build/function/index.mjs
+          echo
+          echo 'STORE_JWT_ISSUER_FIX_BUNDLE_END'
+
 
   postgres-import-integration:
     name: PostgreSQL import transaction tests (isolated)
