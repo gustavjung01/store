@@ -21,6 +21,14 @@ Repository duy nhất: https://github.com/gustavjung01/store
 - Dữ liệu riêng tư cần Neon Auth và tài khoản được cấp quyền `viewer/admin`.
 - Nếu tài khoản do quản trị viên tạo chưa có mật khẩu: dùng **Chưa có mật khẩu / Quên mật khẩu?**, nhận email Neon Auth và thiết lập qua liên kết một lần; không lưu mật khẩu vào repo.
 
+## Bán sỉ và quy cách thùng
+
+- Admin tạo mã mới với ĐVT được điền sẵn **Thùng**, có thể chỉnh cho từng sản phẩm. Mã cũ và mã tạo từ Excel chỉ có tồn **không** bị tự chuyển sang Thùng.
+- Lưu thông tin số SP/thùng, lốc/hộp, khổ giấy, trang, GSM, kẻ/bìa; tra cứu chỉ tính tổng SP quy đổi khi có thông số hợp lệ. Không suy đoán đơn vị giá.
+- Excel danh mục được chọn ĐVT mặc định cho **mã mới**, mapping cột quy cách, xem trước ĐVT/đóng gói trước–sau, kiểm tra mâu thuẫn và hoàn tác đầy đủ.
+- Migration cần thiết: `db/migrations/0004_product_packaging.sql`; phải kiểm trên **Neon dev** trước khi đưa code API mới lên. Không tự triển khai production.
+- Xem [Quy tắc quy cách bán sỉ](docs/WHOLESALE_UNITS.md).
+
 ## Lập trình
 
 Node.js >=22.12 và npm:
