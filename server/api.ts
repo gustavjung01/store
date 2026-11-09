@@ -4,6 +4,8 @@ import { Pool } from 'pg'
 import { attachDatabasePool } from '@neon/functions'
 import { codeKey, parsePageLimit, toProduct } from './catalog'
 import type { DatabaseCatalogRow } from './catalog'
+import { ImportFailure } from './importValidation'
+import { stageImport, commitImport, rollbackImport, importHistory } from './importService'
 
 type StoreVars = { userId: string; role: 'admin' | 'viewer' }
 const app = new Hono<{ Variables: StoreVars }>()
@@ -41,7 +43,7 @@ app.use('*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff')
 
   if (c.req.method === 'OPTIONS') {
-    c.header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     c.header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
     c.header('Access-Control-Max-Age', '300')
     return c.body(null, 204)
@@ -132,6 +134,56 @@ app.get('/catalog/lookup', async (c) => {
   } catch {
     return c.json({ error: 'Không tra cứu được mã CTY' }, 503)
   }
+})
+
+// Admin import endpoints use the verified membership role, never caller-submitted role.
+app.use('/admin/*', async (c, next) => {
+  if (c.get('role') !== 'admin') return c.json({ error: 'Chỉ quản trị viên được nhập Excel' }, 403)
+  await next()
+})
+
+function importResponse(error: unknown): Response {
+  const failure = error instanceof ImportFailure ? error : new ImportFailure('Không xử lý được yêu cầu nhập Excel', 503)
+  return new Response(JSON.stringify({ error: failure.message }), {
+    status: failure.status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+  })
+}
+
+app.post('/admin/import/preview', async (c) => {
+  try {
+    const length = Number(c.req.header('content-length') || 0)
+    if (length > 1900000) throw new ImportFailure('Lượt nhập quá lớn; chia nhỏ file Excel', 413)
+    const body = await c.req.text()
+    if (body.length > 1900000) throw new ImportFailure('Dữ liệu import quá lớn', 413)
+    let data: unknown
+    try { data = JSON.parse(body) } catch { throw new ImportFailure('JSON không hợp lệ', 400) }
+    const result = await stageImport(pool, c.get('userId'), data)
+    return c.json(result, result.valid ? 200 : 422)
+  } catch (error) { return importResponse(error) }
+})
+
+app.post('/admin/import/commit', async (c) => {
+  try {
+    const input: unknown = await c.req.json()
+    const id = input && typeof input === 'object' && 'batchId' in input ? (input as { batchId:unknown }).batchId : null
+    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new ImportFailure('Mã lượt nhập không hợp lệ',400)
+    return c.json(await commitImport(pool,c.get('userId'),id))
+  } catch (error) { return importResponse(error) }
+})
+
+app.post('/admin/import/rollback', async (c) => {
+  try {
+    const input: unknown = await c.req.json()
+    const id = input && typeof input === 'object' && 'batchId' in input ? (input as { batchId:unknown }).batchId : null
+    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new ImportFailure('Mã lượt nhập không hợp lệ',400)
+    return c.json(await rollbackImport(pool,c.get('userId'),id))
+  } catch (error) { return importResponse(error) }
+})
+
+app.get('/admin/imports', async (c) => {
+  try { return c.json(await importHistory(pool)) }
+  catch { return c.json({ error: 'Không đọc được lịch sử nhập' }, 503) }
 })
 
 app.onError((_error, c) => c.json({ error: 'Lỗi máy chủ STORE' }, 500))
