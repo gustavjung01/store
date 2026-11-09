@@ -48,3 +48,7 @@ Mã `000123` phải được lưu dạng chuỗi giữ đủ số 0 đầu. Nế
 7. DB lỗi ở giữa import không gây cập nhật nửa chừng.
 8. Rollback phục hồi được số tồn cũ, có audit người thao tác.
 9. Chỉ admin có thể thực hiện import và rollback.
+
+## 6. Triển khai kỹ thuật
+
+Backend và giao diện cho tồn kho và danh mục/nhiều loại giá: [IMPORT_IMPLEMENTATION.md](IMPORT_IMPLEMENTATION.md). Bản này bảo toàn mã không nằm trong Excel và giá cũ khi ô giá trống, không bật chế độ full snapshot tự đưa mã thiếu về 0. Bộ test đã dùng **dữ liệu kiểm thử tổng hợp**, không phải mã/số tồn công ty.

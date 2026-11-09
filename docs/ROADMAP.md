@@ -21,10 +21,10 @@
 - [ ] Test mobile thật và offline/cache/logout; kiểm thử phân quyền e2e.
 
 ## P2 — Import Excel an toàn
-- [ ] Admin import `.xlsx` danh mục và nhiều loại giá; chọn sheet, mapping, preview.
-- [ ] Admin import tồn bằng mã CTY + số lượng; kiểm tra 0/NULL, trùng, âm, mã mới.
-- [ ] Ghi nguyên tử + lịch sử trước/sau, rollback; không tự zero các mã thiếu.
-- [ ] Đồng bộ version cache sau mỗi lần nhập được xác nhận.
+- [x] Đã viết và CI kiểm thử UI/API admin import `.xlsx` danh mục và nhiều loại giá; chọn sheet, mapping, preview. Chưa xác nhận bằng Excel thật.
+- [x] Đã viết validation tồn mã CTY + số lượng; kiểm tra 0/NULL, trùng, âm, mã mới; test unit thành công.
+- [x] Đã viết backend transaction + audit + rollback gần nhất và migration trên Neon dev; cần kiểm thử e2e có tài khoản admin trước production.
+- [x] Backend tăng version sau confirm/rollback và PWA tải lại khi admin xác nhận; còn cần kiểm thử IndexedDB bằng tài khoản thực.
 
 ## P3 — Vận hành
 - [ ] Phân quyền production, backup, giám sát, kiểm tra thiết bị thật, R2 ảnh READ-ONLY.

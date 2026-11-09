@@ -4,6 +4,8 @@ import { Pool } from 'pg'
 import { attachDatabasePool } from '@neon/functions'
 import { codeKey, parsePageLimit, toProduct } from './catalog'
 import type { DatabaseCatalogRow } from './catalog'
+import { ImportFailure } from './importValidation'
+import { stageImport, commitImport, rollbackImport, importHistory } from './importService'
 
 type StoreVars = { userId: string; role: 'admin' | 'viewer' }
 const app = new Hono<{ Variables: StoreVars }>()
@@ -41,7 +43,7 @@ app.use('*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff')
 
   if (c.req.method === 'OPTIONS') {
-    c.header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     c.header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
     c.header('Access-Control-Max-Age', '300')
     return c.body(null, 204)
@@ -83,18 +85,20 @@ app.get('/catalog/snapshot', async (c) => {
   try { limit = parsePageLimit(c.req.query('limit')) } catch { return c.json({ error: 'limit không hợp lệ' }, 400) }
   const after = c.req.query('after') ?? ''
   if (after.length > 160) return c.json({ error: 'after quá dài' }, 400)
+  const db = await pool.connect()
   try {
+    await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
     const [types, settings, state, items] = await Promise.all([
-      pool.query<{ id: string; label: string }>(
+      db.query<{ id: string; label: string }>(
         'SELECT id,label FROM public.price_types WHERE active = true ORDER BY sort_order,label',
       ),
-      pool.query<{ default_price_type_id: string | null }>(
+      db.query<{ default_price_type_id: string | null }>(
         'SELECT default_price_type_id FROM public.price_settings WHERE id = 1',
       ),
-      pool.query<{ updated_at: Date | null }>(
-        'SELECT updated_at FROM public.catalog_state WHERE id = 1',
+      db.query<{ updated_at: Date | null; version: string }>(
+        'SELECT updated_at,version::text AS version FROM public.catalog_state WHERE id = 1',
       ),
-      pool.query<DatabaseCatalogRow>(
+      db.query<DatabaseCatalogRow>(
         `SELECT ${columns}
          FROM (SELECT * FROM public.products WHERE company_code_key > $1 ORDER BY company_code_key LIMIT $2) p
          ${joins}
@@ -103,17 +107,22 @@ app.get('/catalog/snapshot', async (c) => {
         [after, limit + 1],
       ),
     ])
+    await db.query('COMMIT')
     const rows = items.rows.slice(0, limit)
     return c.json({
       products: rows.map(toProduct),
       priceTypes: types.rows,
       defaultPriceTypeId: settings.rows[0]?.default_price_type_id ?? null,
       syncedAt: new Date().toISOString(),
+      version: state.rows[0]?.version ?? '0',
       dataUpdatedAt: state.rows[0]?.updated_at?.toISOString() ?? null,
       nextCursor: items.rows.length > limit ? rows[rows.length - 1].company_code_key : null,
     })
   } catch {
+    await db.query('ROLLBACK').catch(() => {})
     return c.json({ error: 'Không đọc được danh mục STORE' }, 503)
+  } finally {
+    db.release()
   }
 })
 
@@ -132,6 +141,60 @@ app.get('/catalog/lookup', async (c) => {
   } catch {
     return c.json({ error: 'Không tra cứu được mã CTY' }, 503)
   }
+})
+
+// Admin import endpoints use the verified membership role, never caller-submitted role.
+app.use('/admin/*', async (c, next) => {
+  if (c.get('role') !== 'admin') return c.json({ error: 'Chỉ quản trị viên được nhập Excel' }, 403)
+  await next()
+})
+
+function importResponse(error: unknown, origin?: string): Response {
+  const failure = error instanceof ImportFailure ? error : new ImportFailure('Không xử lý được yêu cầu nhập Excel', 503)
+  const headers = new Headers({
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Vary': 'Origin',
+  })
+  // Preserve CORS on all import errors, but never reflect unknown origins.
+  if (origin && allowedOrigins.has(origin)) headers.set('Access-Control-Allow-Origin', origin)
+  return new Response(JSON.stringify({ error: failure.message }), { status: failure.status, headers })
+}
+
+app.post('/admin/import/preview', async (c) => {
+  try {
+    const length = Number(c.req.header('content-length') || 0)
+    if (length > 1900000) throw new ImportFailure('Lượt nhập quá lớn; chia nhỏ file Excel', 413)
+    const body = await c.req.text()
+    if (body.length > 1900000) throw new ImportFailure('Dữ liệu import quá lớn', 413)
+    let data: unknown
+    try { data = JSON.parse(body) } catch { throw new ImportFailure('JSON không hợp lệ', 400) }
+    const result = await stageImport(pool, c.get('userId'), data)
+    return c.json(result, result.valid ? 200 : 422)
+  } catch (error) { return importResponse(error, c.req.header('origin')) }
+})
+
+app.post('/admin/import/commit', async (c) => {
+  try {
+    const input: unknown = await c.req.json()
+    const id = input && typeof input === 'object' && 'batchId' in input ? (input as { batchId:unknown }).batchId : null
+    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new ImportFailure('Mã lượt nhập không hợp lệ',400)
+    return c.json(await commitImport(pool,c.get('userId'),id))
+  } catch (error) { return importResponse(error, c.req.header('origin')) }
+})
+
+app.post('/admin/import/rollback', async (c) => {
+  try {
+    const input: unknown = await c.req.json()
+    const id = input && typeof input === 'object' && 'batchId' in input ? (input as { batchId:unknown }).batchId : null
+    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new ImportFailure('Mã lượt nhập không hợp lệ',400)
+    return c.json(await rollbackImport(pool,c.get('userId'),id))
+  } catch (error) { return importResponse(error, c.req.header('origin')) }
+})
+
+app.get('/admin/imports', async (c) => {
+  try { return c.json(await importHistory(pool)) }
+  catch { return c.json({ error: 'Không đọc được lịch sử nhập' }, 503) }
 })
 
 app.onError((_error, c) => c.json({ error: 'Lỗi máy chủ STORE' }, 500))
