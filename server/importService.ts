@@ -29,6 +29,7 @@ interface StagedBatch {
   staged_payload: ImportPayload
   expires_at: Date
   applied_at: Date | null
+  applied_version: string | null
   undo_metadata: { previousDefault: string | null; newTypes: string[] } | null
 }
 
@@ -96,6 +97,16 @@ export async function stageImport(pool: Pool, actor: string, raw: unknown) {
       const version = await currentVersion(db)
       const old = await lookupAll(db, payload.rows.map((r) => r.companyCode))
       if (payload.kind === 'catalog') {
+        const missingNames = payload.rows.filter((row) =>
+          !row.name && !old.get(row.companyCode)?.name?.trim(),
+        )
+        if (missingNames.length) return {
+          valid: false, batchId: null,
+          errors: missingNames.slice(0, 100).map((row) => ({
+            rowNumber: row.rowNumber,
+            message: 'Mã ' + row.companyCode + ' chưa có tên hàng. Cần nhập tên trước khi tạo danh mục',
+          })),
+        }
         const existingTypes = await db.query<{ id: string; label: string }>(
           'SELECT id,label FROM public.price_types WHERE id = ANY($1::text[])',
           [payload.priceTypes.map((t) => t.id)],
@@ -155,7 +166,7 @@ export async function stageImport(pool: Pool, actor: string, raw: unknown) {
 
 async function readBatch(db: PoolClient, id: string): Promise<StagedBatch> {
   const result = await db.query<StagedBatch>(
-    'SELECT id,kind,status,imported_by,base_version,staged_payload,expires_at,applied_at,undo_metadata FROM public.import_batches WHERE id=$1 FOR UPDATE',
+    'SELECT id,kind,status,imported_by,base_version,staged_payload,expires_at,applied_at,applied_version,undo_metadata FROM public.import_batches WHERE id=$1 FOR UPDATE',
     [id],
   )
   if (!result.rows[0]) throw new ImportFailure('Không tìm thấy lượt nhập', 404)
@@ -174,6 +185,10 @@ export async function commitImport(pool: Pool, actor: string, id: string) {
       const { payload, issues } = validateImport(batch.staged_payload)
       if (!payload || issues.length) throw new ImportFailure('Dữ liệu chờ nhập không hợp lệ', 422)
       const previous = await lookupAll(db, payload.rows.map(r => r.companyCode))
+      if (payload.kind === 'catalog' && payload.rows.some((row) =>
+        !row.name && !previous.get(row.companyCode)?.name?.trim())) {
+        throw new ImportFailure('Danh mục có mã thiếu tên hàng, phải xem trước lại', 409)
+      }
       const previousDefaultResult = await db.query<{ default_price_type_id: string | null }>(
         'SELECT default_price_type_id FROM public.price_settings WHERE id=1 FOR UPDATE',
       )
@@ -256,8 +271,8 @@ export async function commitImport(pool: Pool, actor: string, id: string) {
       }
       await db.query(
         `UPDATE public.import_batches SET status='applied',applied_at=now(),
-         staged_payload=NULL,undo_metadata=$2::jsonb WHERE id=$1`,
-        [id,JSON.stringify({ previousDefault, newTypes })],
+         staged_payload=NULL,undo_metadata=$2::jsonb,applied_version=$3 WHERE id=$1`,
+        [id,JSON.stringify({ previousDefault, newTypes }), (BigInt(version) + 1n).toString()],
       )
       await db.query('UPDATE public.catalog_state SET version=version+1,updated_at=now() WHERE id=1')
       return { success: true, batchId: id, count: payload.rows.length }
@@ -287,6 +302,12 @@ export async function rollbackImport(pool: Pool, actor: string, id: string) {
       if (latest.rows[0]?.id !== id) throw new ImportFailure('Chỉ hoàn tác được lượt nhập gần nhất chưa bị thay thế', 409)
       const batch = await readBatch(db,id)
       if (batch.status !== 'applied') throw new ImportFailure('Lượt nhập không còn ở trạng thái đã áp dụng',409)
+      // A later manual catalog edit must never be silently erased by Excel undo.
+      const manualAfter = await db.query<{ id: string }>(
+        'SELECT id FROM public.catalog_edits WHERE catalog_version > $1 LIMIT 1',
+        [batch.applied_version ?? '0'],
+      )
+      if (manualAfter.rows.length) throw new ImportFailure('Danh mục đã được sửa thủ công sau lần nhập này; không thể hoàn tác an toàn', 409)
       const audit = await db.query<AuditRow>(
         'SELECT company_code,previous_product,previous_quantity,previous_prices,next_prices,previous_inventory_exists,previous_inventory_updated_at,previous_inventory_batch_id FROM public.import_rows WHERE batch_id=$1 ORDER BY id DESC',
         [id],

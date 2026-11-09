@@ -36,8 +36,13 @@ test('verifies a signed EdDSA token from origin even when aud differs from origi
     .setIssuer(issuer).setSubject('ci-user-id')
     .setIssuedAt(1).setExpirationTime(2).sign(privateKey)
   await assert.rejects(() => verifyNeonManagedJwt(expired, jwks, branchAuth))
-  const last = token.slice(-1)
-  const corrupted = token.slice(0, -1) + (last === 'A' ? 'B' : 'A')
+  // Changing the LAST base64url character can preserve the decoded signature
+  // (unused padding bits). Tamper a middle signature byte instead.
+  const [header, payload, signature] = token.split('.')
+  const middle = Math.floor(signature.length / 2)
+  const corruptedSignature = signature.slice(0, middle)
+    + (signature[middle] === 'A' ? 'B' : 'A') + signature.slice(middle + 1)
+  const corrupted = [header, payload, corruptedSignature].join('.')
   await assert.rejects(() => verifyNeonManagedJwt(corrupted, jwks, branchAuth))
 })
 

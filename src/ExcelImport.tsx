@@ -202,7 +202,7 @@ export default function ExcelImport({
             {selectInput('Mã CTY *',mapping.code,n=>changeMapping({code:n}),true)}
             {kind === 'inventory' && selectInput('Số tồn *',mapping.quantity,n=>changeMapping({quantity:n}),true)}
             {kind === 'catalog' && <>
-              {selectInput('Tên hàng',mapping.name,n=>changeMapping({name:n}))}
+              {selectInput('Tên hàng · cần cho mã mới',mapping.name,n=>changeMapping({name:n}))}
               {selectInput('SKU',mapping.sku,n=>changeMapping({sku:n}))}
               {selectInput('Đơn vị tính',mapping.unit,n=>changeMapping({unit:n}))}
             </>}
@@ -218,7 +218,7 @@ export default function ExcelImport({
             </div>
             <label className="excel-field"><span>Loại giá hiển thị mặc định cho nhân viên</span><select value={mapping.defaultPriceColumn} onChange={e=>changeMapping({defaultPriceColumn:Number(e.target.value)})}><option value={-1}>Giữ mặc định hiện tại</option>{headers.filter(h=>mapping.prices.includes(h.value)).map(h=><option key={h.value} value={h.value}>{h.label}</option>)}</select></label>
           </>}
-          <p className="excel-notice">Mã CTY cần là ô Text để giữ số 0 đầu. Chỉ cập nhật mã trong file; mã vắng mặt không tự về 0.</p>
+          <p className="excel-notice">Mã CTY cần là ô Text để giữ số 0 đầu. Import danh mục không tạo mã mới khi thiếu tên hàng. Import tồn vẫn có thể tạo mã tạm để bổ sung tên sau. Các mã vắng mặt không bị đưa về 0.</p>
           <button className="excel-primary" type="button" disabled={busy} onClick={()=>{void previewImport()}}>{busy ? 'Đang xử lý...' : 'Xem trước thay đổi trên Neon'}</button>
         </>}
         {issues.length > 0 && <div className="excel-issues" role="alert"><strong>Chưa thể xác nhận: {issues.length} lỗi được phát hiện</strong>{issues.slice(0,30).map((i,index)=><p key={index}>Dòng {i.rowNumber || 'cấu hình'}: {i.message}</p>)}</div>}
