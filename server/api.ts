@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
-import { createRemoteJWKSet, jwtVerify } from 'jose'
+import { createRemoteJWKSet } from 'jose'
+import { verifyNeonManagedJwt } from './authVerify'
 import { Pool } from 'pg'
 import { attachDatabasePool } from '@neon/functions'
 import { codeKey, parsePageLimit, toProduct } from './catalog'
@@ -20,8 +21,6 @@ if (!databaseUrl || !authBase || !jwksUrl) {
 const pool = new Pool({ connectionString: databaseUrl, max: 5 })
 attachDatabasePool(pool)
 const jwks = createRemoteJWKSet(new URL(jwksUrl))
-// Better Auth JWT uses its complete BASE_URL (including /store/auth) for iss/aud.
-const authIssuer = authBase.replace(/\/+$/, '')
 const allowedOrigins = new Set(['https://store-nu-opal.vercel.app'])
 // Never allow localhost as a production CORS origin.
 if (process.env.NEON_BRANCH !== 'main') allowedOrigins.add('http://localhost:5173')
@@ -55,26 +54,27 @@ app.use('*', async (c, next) => {
   const header = c.req.header('authorization') || ''
   const match = /^Bearer (\S+)$/.exec(header)
   if (!match) return c.json({ error: 'Unauthorized' }, 401)
+  // Verify signed JWT before looking up the authenticated identity.
+  // Do not convert database outages into false "session expired" errors.
+  let userId: string
   try {
-    const { payload } = await jwtVerify(match[1], jwks, {
-      issuer: authIssuer,
-      audience: authIssuer,
-      algorithms: ['EdDSA'],
-    })
-    const userId = payload.sub
-    if (!userId) return c.json({ error: 'Unauthorized' }, 401)
+    const { payload } = await verifyNeonManagedJwt(match[1], jwks, authBase)
+    if (!payload.sub) return c.json({ error: 'Unauthorized' }, 401)
+    userId = payload.sub
+  } catch {
+    // Never log the bearer token, decoded claims, or JWKS.
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  try {
     const member = await pool.query<{ role: 'admin' | 'viewer' }>(
       `SELECT role FROM public.app_members WHERE user_id = $1 AND active = true LIMIT 1`, [userId],
     )
     if (!member.rows[0]) return c.json({ error: 'Tài khoản chưa được cấp quyền STORE' }, 403)
     c.set('userId', userId)
     c.set('role', member.rows[0].role)
-  } catch (error) {
-    // Never write token, JWT, or personally identifying claims to logs.
-    if (error instanceof Error && /relation .*app_members.* does not exist/i.test(error.message)) {
-      return c.json({ error: 'STORE database chưa được khởi tạo' }, 503)
-    }
-    return c.json({ error: 'Unauthorized' }, 401)
+  } catch {
+    return c.json({ error: 'Không đọc được phân quyền STORE' }, 503)
   }
   await next()
 })
