@@ -1,5 +1,7 @@
 import type { Pool } from 'pg'
 import { normalizedCode } from './importValidation.ts'
+import { normalizeProductSpec } from '../src/productSpec.ts'
+import type { ProductSpec } from '../src/productSpec.ts'
 
 export type ProductInput = {
   companyCode: string
@@ -7,6 +9,7 @@ export type ProductInput = {
   sku: string | null
   unit: string | null
   category: string | null
+  productSpec?: ProductSpec
   expectedVersion: string
 }
 
@@ -39,11 +42,16 @@ export function validateProductInput(input: unknown): ProductInput {
   const sku = inputText(data.sku, 120, 'SKU', false)
   const unit = inputText(data.unit, 60, 'Đơn vị tính', false)
   const category = inputText(data.category, 120, 'Nhóm hàng', false)
+  let productSpec: ProductSpec | undefined
+  if (Object.prototype.hasOwnProperty.call(data, 'productSpec')) {
+    try { productSpec = normalizeProductSpec(data.productSpec) }
+    catch (error) { throw new CatalogError(error instanceof Error ? error.message : 'Quy cách không hợp lệ') }
+  }
   const version = data.expectedVersion
   if (typeof version !== 'string' || !/^(0|[1-9]\d{0,18})$/.test(version)) {
     throw new CatalogError('Vui lòng đồng bộ danh mục trước khi lưu', 409)
   }
-  return { companyCode: code, name, sku, unit, category, expectedVersion: version }
+  return { companyCode: code, name, sku, unit, category, productSpec, expectedVersion: version }
 }
 
 export async function saveCatalogProduct(
@@ -74,8 +82,9 @@ export async function saveCatalogProduct(
       sku: string | null
       unit: string | null
       category: string | null
+      product_spec: ProductSpec
     }>(
-      'SELECT id,company_code,name,sku,unit,category FROM public.products WHERE company_code_key=$1 FOR UPDATE',
+      'SELECT id,company_code,name,sku,unit,category,product_spec FROM public.products WHERE company_code_key=$1 FOR UPDATE',
       [input.companyCode],
     )
     const previous = found.rows[0] ?? null
@@ -89,27 +98,30 @@ export async function saveCatalogProduct(
     let productId: string
     if (mode === 'create') {
       const created = await db.query<{ id: string }>(
-        `INSERT INTO public.products(company_code,name,sku,unit,category)
-         VALUES($1,$2,$3,$4,$5) RETURNING id`,
-        [input.companyCode,input.name,input.sku,input.unit,input.category],
+        `INSERT INTO public.products(company_code,name,sku,unit,category,product_spec)
+         VALUES($1,$2,$3,$4,$5,$6::jsonb) RETURNING id`,
+        [input.companyCode,input.name,input.sku,input.unit,input.category,JSON.stringify(input.productSpec ?? {})],
       )
       productId = created.rows[0].id
     } else {
       productId = previous!.id
       await db.query(
-        `UPDATE public.products SET name=$2,sku=$3,unit=$4,category=$5,updated_at=now()
+        `UPDATE public.products SET name=$2,sku=$3,unit=$4,category=$5,
+           product_spec=COALESCE($6::jsonb,product_spec),updated_at=now()
          WHERE id=$1`,
-        [productId,input.name,input.sku,input.unit,input.category],
+        [productId,input.name,input.sku,input.unit,input.category,
+          input.productSpec ? JSON.stringify(input.productSpec) : null],
       )
     }
 
     const auditBefore = previous ? {
       companyCode: previous.company_code, name: previous.name, sku: previous.sku,
-      unit: previous.unit, category: previous.category,
+      unit: previous.unit, category: previous.category, productSpec: previous.product_spec,
     } : null
     const auditAfter = {
       companyCode: input.companyCode, name: input.name, sku: input.sku,
       unit: input.unit, category: input.category,
+      productSpec: input.productSpec ?? previous?.product_spec ?? {},
     }
     const next = await db.query<{ version: string }>(
       'UPDATE public.catalog_state SET version=version+1,updated_at=now() WHERE id=1 RETURNING version::text',
