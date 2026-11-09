@@ -43,3 +43,12 @@ Phạm vi giai đoạn này: **chỉ UI/PWA và màn tra cứu, danh mục**. Gi
 - **UAT còn phải làm trên thiết bị thật**: Android Chrome và iPhone Safari/PWA đã cài, các viewport 360/390/768/1280/1440; keyboard mở/đóng, safe areas, trạng thái offline, nhiều kết quả, không kết quả, role viewer/admin, login/logout, focus/Tab/Esc, long text, modal, scroll ngang Excel **chỉ trong bảng**.
 - Screenshot trước/sau, test PWA standalone và kiểm browser console chỉ có giá trị khi thực sự chạy; **CI tĩnh không thay thế UAT**.
 - Phần **nhập Excel/quy cách** là PR kế tiếp sau khi UI đạt nghiệm thu, không gộp vào PR này.
+
+
+## Chế độ Sáng/Tối — Neon-style dịu (09/11/2026)
+
+- Thanh trên gồm đúng **logo STORE bên trái, switch ở chính giữa, Đăng xuất bên phải**. Trên desktop điều hướng giữ ở sidebar, mobile ở dock. Không hiển thị breadcrumb, email, badge online hoặc shortcut trên topbar.
+- Bảng màu dark: canvas `#0d1118`; card `#171f29`; input `#111923`; border `#303b49`; chữ `#d7dfe8`; nhấn sage muted `#79a99d`. Không nền trắng hoặc glow trong dark mode.
+- Các lớp dark override độc lập trong `src/store-theme.css` tải cuối cùng, phủ auth, tra cứu, giá/tồn, danh mục, file Excel, preview, input, thông báo và modal. UI cơ bản/geometry trong `src/store-ui.css`.
+- Khởi tạo dark/light ngay trong HTML theo `localStorage['store-theme']` hoặc `prefers-color-scheme` khi chưa từng chọn; cập nhật `data-theme`, `color-scheme`, meta theme-color trước paint. Không lưu hay đọc dữ liệu cá nhân bằng theme.
+- Giao diện tối cần kiểm UAT 320/360/390/768/1280, thiết bị mobile, PWA cài đặt, bàn phím, tab/keyboard focus, không mảng trắng/flash khi reload, đủ tương phản, không glow rực.
