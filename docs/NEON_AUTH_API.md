@@ -74,6 +74,10 @@ Không tự tạo tài khoản admin, không tự gán quyền cho user mới. V
 
 - Frontend dùng `src/authJwt.ts` để gọi trực tiếp **GET `<NEON_AUTH_BASE_URL>/token`** với cookie HttpOnly theo `credentials: include`. Không sử dụng kết quả cache từ `authClient.token()` của SDK beta làm JWT.
 - Chỉ chấp nhận giá trị trả về có cấu trúc JWT, không lưu token vào IndexedDB, URL hoặc log. Backend vẫn phải xác minh chữ ký bằng JWKS và kiểm tra `app_members`.
-- Backend xác minh `issuer` và `audience` là **Neon Auth BASE_URL đầy đủ** (bao gồm `/store/auth`), không chỉ domain.
+- **Đính chính:** JWT của Neon Managed Auth phải được xác minh với issuer là **origin của Neon Auth URL** (không gồm đường dẫn `/store/auth`). Không được ép `audience` bằng origin nếu Neon không công bố ràng buộc này. Luôn kiểm chữ ký EdDSA, JWKS và thời hạn token, sau đó kiểm role trong `app_members`.
 - Trạng thái phiên Better Auth chưa đủ quyền sẽ chỉ hiện màn hình xác minh/thử lại/đăng xuất, **không render giao diện danh mục/nhập Excel** trước khi `/me` xác nhận quyền.
 - Vẫn phải kiểm tra đăng nhập từ thiết bị thật sau deploy: GET `/token` trả JWT, GET `/me` 200 sau khi được cấp quyền; email và mật khẩu người dùng không cần gửi lại.
+
+### 2026-11-09 — Sửa lại xác minh JWT
+
+Ảnh thực tế cho thấy trình duyệt nhận JWT nhưng Function trả HTTP 401. Nguyên nhân ở backend ép issuer thành full BASE_URL và ép audience thành BASE_URL; không đúng hợp đồng Neon Managed Auth. Sửa tại `server/authVerify.ts` và `server/api.ts`, kèm kiểm thử token EdDSA thật. Lỗi database của bảng quyền trả 503 thay vì báo sai là session hết hạn. Web frontend không thay đổi ở bản hotfix này; cập nhật Neon dev Function là đủ.
