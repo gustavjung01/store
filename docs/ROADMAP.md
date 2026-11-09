@@ -14,7 +14,8 @@
 - [x] Code Auth login/logout, JWT, phân quyền qua API, đồng bộ IndexedDB; đang chờ kiểm thử end-to-end.
 - [x] Migration PostgreSQL trên **Neon dev branch**: danh mục/giá/tồn/audit.
 - [x] Source API Neon Functions read-only: `/me`, `/catalog/snapshot`, `/catalog/lookup`.
-- [ ] Deploy/test Function trên Neon **dev branch**; kiểm tra 401/403/snapshot, chưa deploy production.
+- [x] Deploy Function trên Neon **dev branch**; HTTPS health 200, chưa login 401; SQL tra cứu đã chạy không lỗi trên bảng trống.
+- [ ] Test đầy đủ 403, phân quyền viewer/admin và trả sản phẩm thực sau khi Owner cấp tài khoản/dữ liệu.
 - [ ] Có tài khoản được duyệt và dữ liệu danh mục thật để kiểm nghiệm tra cứu.
 - [ ] Duyệt migration production Neon và cấu hình Auth/Function trên production theo Owner.
 - [ ] Test mobile thật và offline/cache/logout; kiểm thử phân quyền e2e.

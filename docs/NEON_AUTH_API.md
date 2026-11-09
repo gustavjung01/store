@@ -7,7 +7,7 @@
 - Neon Auth **đã bật trên nhánh phát triển**, provider Managed Better Auth, email/mật khẩu; **đã khóa tự đăng ký**.
 - Đã thêm trusted origin `https://store-nu-opal.vercel.app` cho Auth ở nhánh phát triển.
 - Migration `db/migrations/0001_store_catalog.sql` đã được áp dụng **thành công trên nhánh phát triển** (Neon `main` vẫn chưa có các bảng).
-- API Neon Functions đã có **source và typecheck trong repo**; chưa khẳng định Functions đã deploy / hoạt động qua HTTPS.
+- API Neon Functions **đã deploy thành công trên nhánh phát triển** với slug `storeapi`; GitHub Actions đã kiểm thử HTTPS `/health` => **200**, `/me` không JWT => **401**. Chưa có tài khoản được cấp quyền để kiểm thử luồng viewer/admin.
 - Chưa đưa Auth URL hay API URL vào Vercel production, vì Neon production chưa sẵn sàng.
 
 ## Database schema
@@ -24,6 +24,8 @@
 Truy cập từ client tới DB bằng URL/password PostgreSQL **bị cấm**. Chỉ backend Neon Functions dùng `DATABASE_URL` được Neon inject, cùng `NEON_AUTH_BASE_URL` và `NEON_AUTH_JWKS_URL`.
 
 ## Backend API (đều dùng GET, ngoại trừ CORS OPTIONS)
+
+Function dev URL: `https://br-lucky-violet-aznxmc4n-storeapi.compute.c-3.ap-southeast-1.aws.neon.tech/` (public endpoint, dữ liệu phải qua JWT + membership).
 
 Function tại `server/api.ts` với slug `storeapi` trong `neon.ts`.
 
@@ -63,7 +65,7 @@ Không tự tạo tài khoản admin, không tự gán quyền cho user mới. V
 
 ## Triển khai an toàn
 
-- Trên nhánh Neon dev, có thể chạy `neon deploy` từ checkout repo đã **liên kết tới đúng nhánh**. Không chạy lệnh trong `main` Neon.
+- Trên nhánh Neon dev, Function đã deploy bằng bản bundle build từ commit trên PR và kiểm tra hoạt động qua HTTP. Khi thay code API, cập nhật Function trên **cùng nhánh dev**; không chạy `neon deploy` khi liên kết `main` Neon.
 - Neon Functions sử dụng `@neon/functions` + `pg` pool và JWT `jose`.
 - Trước production, kiểm thử đầy đủ: 401 chưa login, 403 chưa cấp quyền, đúng quyền viewer/admin, tìm mã có 0 đầu, phân trang, logout/cache, offline; cấu hình email delivery production và kiểm tra HTTPS/CORS.
 - **Không áp migration/enable auth lên Neon main, không thay Vercel production env, không deploy production** trước khi Owner duyệt bước chuyển production.

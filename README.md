@@ -25,7 +25,7 @@ npm run dev
 
 Để dùng đăng nhập và dữ liệu thật, cấu hình `VITE_NEON_AUTH_URL` và `VITE_STORE_API_URL` theo `.env.example`. **Không bao giờ dùng DB URL, Neon API key hoặc Vercel token trong frontend.**
 
-Hiện Neon Auth và schema đã được chuẩn bị trên **nhánh Neon phát triển**; backend Function/production tích hợp cần nghiệm thu riêng. Không có file Excel, tài khoản hay giá/tồn thật trong repo.
+Hiện Neon Auth và schema đã được chuẩn bị trên **nhánh Neon phát triển**; backend Function đã triển khai và kiểm tra HTTP trên **Neon dev branch**; production tích hợp cần nghiệm thu và duyệt migration riêng. Không có file Excel, tài khoản hay giá/tồn thật trong repo.
 
 ## Hạ tầng
 
