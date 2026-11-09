@@ -1,3 +1,4 @@
+import { safeProductSpec } from '../src/productSpec.ts'
 /** Convert database rows into the STORE frontend snapshot contract. */
 export interface DatabaseCatalogRow {
   company_code: string
@@ -5,6 +6,7 @@ export interface DatabaseCatalogRow {
   name: string | null
   unit: string | null
   category: string | null
+  product_spec?: unknown
   image_url: string | null
   quantity: number | null
   inventory_updated_at: Date | string | null
@@ -28,6 +30,7 @@ export function toProduct(row: DatabaseCatalogRow) {
     name: row.name,
     unit: row.unit,
     category: row.category,
+    productSpec: safeProductSpec(row.product_spec),
     imageUrl: row.image_url,
     quantity: row.quantity,
     inventoryUpdatedAt: row.inventory_updated_at ? new Date(row.inventory_updated_at).toISOString() : null,
