@@ -110,7 +110,6 @@ function Sidebar({ isAdmin, pane, onNavigate }: { isAdmin: boolean; pane: Pane; 
         <button className={'nav-item nav-button' + (pane === 'search' ? ' nav-active' : '')} type="button" aria-current={pane === 'search' ? 'page' : undefined} onClick={() => onNavigate('search')}><Icon name="search" size={20} />Tra cứu hàng hóa</button>
         <button className={'nav-item nav-button' + (pane === 'catalog' ? ' nav-active' : '')} type="button" aria-current={pane === 'catalog' ? 'page' : undefined} onClick={() => onNavigate('catalog')}><Icon name="list" size={20} />Danh mục</button>
         {isAdmin ? <button className={'nav-item nav-button' + (pane === 'excel' ? ' nav-active' : '')} type="button" aria-current={pane === 'excel' ? 'page' : undefined} onClick={() => onNavigate('excel')}><Icon name="upload" size={20} />Nhập Excel</button> : <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="upload" size={20} />Nhập tồn Excel <span>Chỉ admin</span></div>}
-        
       </nav>
       <div className="sidebar-note"><span className="note-dot" /> <strong>Ảnh chụp tồn kho</strong><p>Số tồn lấy từ lần nhập Excel gần nhất, không phải tồn realtime.</p></div>
     </aside>
@@ -186,7 +185,7 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
       <div className="workspace">
         <header className="topbar">
           <div className="breadcrumbs"><span className="mobile-brand"><span className="mobile-brand-mark"><Icon name="box" size={19} /></span>STORE</span><span className="desktop-crumb">STORE <span className="crumb-divider">/</span></span><strong>{pane === 'catalog' ? 'Danh mục' : pane === 'excel' ? 'Nhập Excel' : 'Tra cứu'}</strong></div>
-          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Đã kết nối') : 'Ngoại tuyến'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout admin-shortcut" type="button" onClick={() => navigate(pane === 'excel' ? 'search' : 'excel')}>{pane === 'excel' ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
+          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Có mạng') : 'Ngoại tuyến'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout admin-shortcut" type="button" onClick={() => navigate(pane === 'excel' ? 'search' : 'excel')}>{pane === 'excel' ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
         </header>
         <main ref={mainRef} className="main" id={pane === 'catalog' ? 'danh-muc' : pane === 'excel' ? 'nhap-excel' : 'tra-cuu'}>
           {pane === 'catalog' ? (
@@ -212,7 +211,7 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
                   <input id="store-search" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedCode(null) }} autoComplete="off" spellCheck={false} placeholder="Nhập mã hoặc tên hàng..." />
                 </div>
                 {query.trim() && results.length > 1 ? <div className="search-suggestions" aria-label="Các sản phẩm phù hợp">
-                  <div className="suggestions-heading">{results.length} kết quả phù hợp · Chọn để xem</div>
+                  <div className="suggestions-heading">{Math.min(6, results.length)} gợi ý phù hợp · Gõ thêm để lọc</div>
                   {results.slice(0, 6).map((item) => (
                     <button type="button" key={item.companyCode} className={'suggestion' + (product?.companyCode === item.companyCode ? ' chosen' : '')}
                       aria-pressed={product?.companyCode === item.companyCode}
@@ -224,7 +223,7 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
                 </div> : null}
               </section>
               {query.trim() !== '' && !product && (
-                <div className="search-warning" role="status"><Icon name="wifi" size={17} />{snapshot.products.length === 0 ? 'Chưa có danh mục được nhập Excel.' : 'Không tìm thấy sản phẩm theo từ khóa này.'}</div>
+                <div className="search-warning" role="status"><Icon name="search" size={17} />{snapshot.products.length === 0 ? 'Chưa có danh mục được nhập Excel.' : 'Không tìm thấy sản phẩm theo từ khóa này.'}</div>
               )}
               {product ? <ProductPreview key={product.companyCode} product={product} snapshot={snapshot} /> : query.trim() ? null : (
                 <section className="search-empty" aria-label="Hướng dẫn tra cứu">
