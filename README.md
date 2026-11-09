@@ -17,17 +17,17 @@ Mở ứng dụng trên điện thoại, nhập **mã CTY / SKU / tên**, xem **
 
 Yêu cầu Node.js **22.12+** và npm.
 
-\`\`\`bash
+```bash
 npm install
 npm run dev
 npm run typecheck
 npm test
 npm run build
-\`\`\`
+```
 
 Chưa có dữ liệu công ty nên UI cố ý hiển thị placeholder và trạng thái **chưa đồng bộ Neon**, không dựng dữ liệu mẫu giả.
 
-**Bảo mật:** \`src/cache.ts\` chuẩn bị IndexedDB nhưng giao diện chưa đọc/ghi cache cho tới khi có đăng nhập và phân quyền. Service worker chỉ cache bộ vỏ ứng dụng tĩnh.
+**Bảo mật:** `src/cache.ts` chuẩn bị IndexedDB nhưng giao diện chưa đọc/ghi cache cho tới khi có đăng nhập và phân quyền. Service worker chỉ cache bộ vỏ ứng dụng tĩnh.
 
 ## Tài liệu
 
@@ -40,6 +40,6 @@ Chưa có dữ liệu công ty nên UI cố ý hiển thị placeholder và tr�
 
 ## Deploy
 
-Vercel project STORE thuộc \`gustavjung01\`, **không kết nối Git Integration**, nên push/merge GitHub không tự deploy. GitHub CI PR chỉ chạy kiểm thử.
+Vercel project STORE thuộc `gustavjung01`, **không kết nối Git Integration**, nên push/merge GitHub không tự deploy. GitHub CI PR chỉ chạy kiểm thử.
 
 Workflow deploy qua comment do Owner duyệt ở PR #1; cần cấu hình token riêng qua GitHub Environments, không gửi bí mật qua chat. **Không deploy hay migrate DB production khi chưa được Owner phê duyệt.**
