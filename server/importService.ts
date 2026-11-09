@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg'
-import { ImportFailure, validateImport } from './importValidation'
+import { ImportFailure, validateImport } from './importValidation.ts'
 import type { ImportPayload, ImportRow } from './importValidation'
 
 interface ExistingProduct {
