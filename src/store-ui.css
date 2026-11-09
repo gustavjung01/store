@@ -311,3 +311,19 @@ button:disabled{cursor:not-allowed;opacity:.55}
   .catalog-spec-section .catalog-form-grid{grid-template-columns:1fr}
   .catalog-spec-section input{font-size:16px}
 }
+
+/* Excel catalogue specification mapping and unit safety. */
+.excel-pack-fields{border:1px solid #dce6f5;background:#fafcff;border-radius:11px;padding:16px;margin:12px 0 18px}
+.excel-pack-fields .excel-field{margin:0 0 13px}
+.excel-pack-fields details{border-top:1px solid #e2e9f5;padding-top:13px}
+.excel-pack-fields summary{font-size:13px;font-weight:750;color:var(--store-accent-strong);cursor:pointer;min-height:36px;display:flex;align-items:center}
+.excel-pack-fields summary:focus-visible{outline:2px solid var(--store-accent);outline-offset:2px}
+.excel-pack-fields details>p{font-size:12px;color:var(--store-muted);line-height:1.6;margin:9px 0 12px}
+.excel-pack-fields .excel-grid{margin-bottom:0}
+.excel-unit-warning{background:#fff7e8;border:1px solid #f0cf96;color:#81531f;border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.6}
+.excel-table-wrap th,.excel-table-wrap td{font-size:12px}
+@media(max-width:780px){
+  .excel-pack-fields{padding:13px}
+  .excel-pack-fields .excel-grid{grid-template-columns:1fr}
+  .excel-pack-fields summary{min-height:44px}
+}
