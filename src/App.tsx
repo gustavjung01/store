@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { findProducts, normalizeCode, formatDate, formatVnd, priceFor, stockState } from './domain'
 import { findCachedByCompanyCode } from './cache'
+import ExcelImport from './ExcelImport'
 import type { CatalogSnapshot, PriceType, ProductRecord } from './domain'
 
 type IconName = 'search' | 'box' | 'list' | 'upload' | 'settings' | 'image' | 'chevron' | 'clock' | 'check' | 'wifi' | 'arrow'
@@ -90,7 +91,7 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord | null; 
   )
 }
 
-function Sidebar() {
+function Sidebar({isAdmin,onImport}: {isAdmin:boolean;onImport:()=>void}) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -101,7 +102,7 @@ function Sidebar() {
       <nav aria-label="Điều hướng STORE" className="side-nav">
         <a href="#tra-cuu" className="nav-item nav-active" aria-current="page"><Icon name="search" size={20} />Tra cứu hàng hóa</a>
         <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="list" size={20} />Danh mục <span>Sắp có</span></div>
-        <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="upload" size={20} />Nhập tồn Excel <span>Sắp có</span></div>
+        {isAdmin ? <button className="nav-item nav-button" type="button" onClick={onImport}><Icon name="upload" size={20} />Nhập Excel</button> : <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="upload" size={20} />Nhập tồn Excel <span>Chỉ admin</span></div>}
         <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="settings" size={20} />Thiết lập <span>Sắp có</span></div>
       </nav>
       <div className="sidebar-note"><span className="note-dot" /> <strong>Chưa kết nối dữ liệu</strong><p>Neon, xác thực và import Excel sẽ được cấu hình ở giai đoạn tiếp theo.</p></div>
@@ -117,9 +118,13 @@ interface AppProps {
   isLoading: boolean
   onReload: () => void
   onSignOut: () => void
+  role: 'admin' | 'viewer' | null
+  apiBase: string
+  getAdminToken: () => Promise<string>
 }
 
-export default function App({ snapshot, catalogStatus, cacheScope, userEmail, isLoading, onReload, onSignOut }: AppProps) {
+export default function App({ snapshot, catalogStatus, cacheScope, userEmail, isLoading, onReload, onSignOut, role, apiBase, getAdminToken }: AppProps) {
+  const [adminOpen,setAdminOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const results = useMemo(() => findProducts(snapshot.products, query), [snapshot.products, query])
@@ -150,13 +155,16 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
 
   return (
     <div className="app">
-      <Sidebar />
+      <Sidebar isAdmin={role === 'admin'} onImport={()=>setAdminOpen(true)} />
       <div className="workspace">
         <header className="topbar">
           <div className="breadcrumbs"><span>STORE</span><span className="crumb-divider">/</span><strong>Tra cứu sản phẩm</strong></div>
-          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Theo snapshot Excel') : 'Đang offline'}</span><span className="session-email">{userEmail}</span><button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
+          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Theo snapshot Excel') : 'Đang offline'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout" type="button" onClick={()=>setAdminOpen(!adminOpen)}>{adminOpen ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
         </header>
         <main className="main" id="tra-cuu">
+          {adminOpen && role === 'admin' ?
+            <ExcelImport apiBase={apiBase} getToken={getAdminToken} onClose={()=>setAdminOpen(false)} onSaved={onReload} />
+          : <>
           <div className="hero">
             <span className="hero-tag"><span className="mini-glow" /> DÀNH CHO NHÂN VIÊN KINH DOANH</span>
             <h1>Tra hàng nhanh.<br /><span>Chốt giá tự tin.</span></h1>
@@ -196,6 +204,7 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
               </section>
             </aside>
           </div>
+          </>}
         </main>
         <footer className="footer"><span>STORE · Ứng dụng tra cứu bán hàng</span><span>Snapshot Excel, không phải tồn realtime</span></footer>
       </div>
