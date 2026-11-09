@@ -62,4 +62,4 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Run migrations and real import/rollback integration tests
-        run: node --experimental-strip-types --test tests/importService.db.test.mjs
+        run: node --experimental-strip-types --test tests/integration/importService.db.test.mjs
