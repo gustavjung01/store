@@ -67,3 +67,42 @@ test('price ids and duplicate mapping safely rejected',()=>{
   assert.equal(p.payload,null)
   assert.match(p.issues[0].message,/bị trùng/)
 })
+
+test('catalogue Excel maps carton columns without touching skipped fields', () => {
+  const sheet = { sheet: 'Danh mục', data: [
+    ['Mã CTY', 'Tên hàng', 'ĐVT', 'ĐVT lẻ', 'SP / thùng', 'GSM'],
+    ['000044', 'Hàng kiểm thử A', 'Thùng', 'quyển', 100, 70],
+    ['000045', 'Hàng kiểm thử B', '', '', '', ''],
+  ] }
+  const selection = {
+    code:0, quantity:-1, name:1, sku:-1, unit:2, prices:[], defaultPriceColumn:-1,
+    specColumns: { pieceUnit:3, unitsPerCarton:4, gsm:5 }, defaultUnitForNew:'Thùng',
+  }
+  const result = buildMappedImport(sheet, 1, selection, 'catalog', 'test-only.xlsx')
+  assert.equal(result.issues.length, 0)
+  assert.equal(result.payload.defaultUnitForNew, 'Thùng')
+  assert.deepEqual(result.payload.rows[0].productSpec, { pieceUnit:'quyển', unitsPerCarton:100, gsm:70 })
+  assert.equal(result.payload.rows[1].productSpec, undefined, 'empty mapped cells must preserve previous spec')
+  assert.equal(result.payload.rows[1].unit, null, 'blank unit uses default only for a new catalogue code')
+})
+
+test('mapping duplicate columns between carton and price or unit must be rejected', () => {
+  const sheet = { sheet: 'Danh mục', data: [
+    ['Mã CTY','Tên','SP/thùng'], ['0001','Hàng thử nghiệm',100],
+  ] }
+  const base = { code:0,quantity:-1,name:1,sku:-1,unit:-1,prices:[],defaultPriceColumn:-1 }
+  const result = buildMappedImport(sheet, 1, {
+    ...base, specColumns:{unitsPerCarton:2}, prices:[2],
+  }, 'catalog', 'test-only.xlsx')
+  assert.equal(result.payload, null)
+  assert.match(result.issues[0].message, /nhiều trường/)
+})
+
+test('invalid Excel carton quantity is rejected even when other fields are valid', () => {
+  const result = catalog([
+    { rowNumber:2, companyCode:'00012', name:'Hàng thử',
+      productSpec:{pieceUnit:'quyển', unitsPerCarton:-20} },
+  ], [])
+  assert.equal(result.payload, null)
+  assert.match(result.issues[0].message, /số nguyên dương/)
+})
