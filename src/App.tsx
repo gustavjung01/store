@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { findProducts, normalizeCode, formatDate, formatVnd, priceFor, stockState } from './domain'
 import { findCachedByCompanyCode } from './cache'
+import { safeProductSpec, wholesaleConversion } from './productSpec'
 import ExcelImport from './ExcelImport'
 import CatalogManager from './CatalogManager'
 import type { CatalogSnapshot, PriceType, ProductRecord } from './domain'
@@ -30,6 +31,16 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
   const defaultType = snapshot.priceTypes.find((p) => p.id === snapshot.defaultPriceTypeId) ?? null
   const quantity = product.quantity
   const state = stockState(quantity)
+  const spec = safeProductSpec(product.productSpec)
+  const carton = wholesaleConversion(quantity, product.unit, spec)
+  const number = (value: number) => value.toLocaleString('vi-VN')
+  const technical = [
+    spec.paperSize ? 'Khổ ' + spec.paperSize : null,
+    spec.pages ? number(spec.pages) + ' trang' : null,
+    spec.ruling,
+    spec.gsm ? number(spec.gsm) + ' GSM' : null,
+    spec.coverType ? 'Bìa ' + spec.coverType : null,
+  ].filter(Boolean)
   const stockLabel = state === 'available' ? 'Còn hàng' : state === 'empty' ? 'Hết hàng' : 'Chưa có dữ liệu'
 
   return (
@@ -48,7 +59,7 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
           <p className="eyebrow">THÔNG TIN SẢN PHẨM</p>
           <h2>{product.name || 'Chưa có tên hàng'}</h2>
           <p className="muted">Mã CTY: <strong>{product.companyCode}</strong></p>
-          <p className="muted">ĐVT: {product.unit || 'Chưa có dữ liệu'}</p>
+          <p className="muted">ĐVT tồn kho: <strong>{product.unit || 'Chưa xác nhận'}</strong></p>
         </div>
       </div>
       <div className="metric-row">
@@ -56,6 +67,7 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
           <p className="eyebrow">TỒN KHO</p>
           <div className="stock-line">
             <strong className="stock-number">{quantity === null ? '—' : quantity.toLocaleString('vi-VN')}</strong>
+            {quantity !== null && product.unit && <span className="stock-unit">{product.unit}</span>}
             <span className={'stock-badge stock-' + state}>{stockLabel}</span>
           </div>
         </div>
@@ -64,6 +76,20 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
           <span>{formatDate(product?.inventoryUpdatedAt ?? null)}</span>
         </div>
       </div>
+      <section className="packaging-panel" aria-label="Quy cách đóng gói">
+        <div className="packaging-heading"><strong>Quy cách để báo khách</strong></div>
+        {carton.piecesPerCarton && spec.pieceUnit ? (
+          <>
+            <p className="carton-fact"><strong>1 thùng</strong> = <strong>{number(carton.piecesPerCarton)} {spec.pieceUnit}</strong></p>
+            {carton.totalPieces !== null && <p className="carton-equivalent">Tồn quy đổi: {number(carton.totalPieces)} {spec.pieceUnit} (từ {number(quantity!)} thùng)</p>}
+            {carton.fullCartons !== null && <p className="carton-equivalent">Tương đương {number(carton.fullCartons)} thùng + {number(carton.remainder!)} {spec.pieceUnit} lẻ</p>}
+          </>
+        ) : <p className="carton-unverified">Chưa có số sản phẩm/thùng được xác nhận — không tự quy đổi.</p>}
+        {spec.packUnit && spec.unitsPerPack && spec.pieceUnit && <p className="packaging-detail">1 {spec.packUnit} = {number(spec.unitsPerPack)} {spec.pieceUnit}</p>}
+        {spec.packUnit && spec.packsPerCarton && <p className="packaging-detail">1 thùng = {number(spec.packsPerCarton)} {spec.packUnit}</p>}
+        {technical.length > 0 && <p className="packaging-detail">{technical.join(' · ')}</p>}
+        {spec.packagingNote && <p className="packaging-detail">{spec.packagingNote}</p>}
+      </section>
       <div className="price-panel">
         <div className="price-heading">
           <span>{defaultType?.label || 'GIÁ MẶC ĐỊNH'}</span>
