@@ -95,7 +95,7 @@ app.get('/catalog/snapshot', async (c) => {
       db.query<{ default_price_type_id: string | null }>(
         'SELECT default_price_type_id FROM public.price_settings WHERE id = 1',
       ),
-      db.query<{ updated_at: Date | null }>(
+      db.query<{ updated_at: Date | null; version: string }>(
         'SELECT updated_at,version::text AS version FROM public.catalog_state WHERE id = 1',
       ),
       db.query<DatabaseCatalogRow>(
