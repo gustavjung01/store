@@ -1,0 +1,86 @@
+name: Deploy STORE to Vercel Production by comment
+
+# No Git integration; a push or merge never deploys to Vercel.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-vercel-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Only the repository owner can trigger a production release using
+    # an exact command on a STORE pull request (including merged PRs).
+    if: >-
+      github.event.issue.pull_request != null &&
+      github.event.comment.user.id == 276658950 &&
+      github.event.comment.user.login == 'gustavjung01' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/deploy production'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+
+    env:
+      # Pinned public identifiers for the STORE project ONLY.
+      VERCEL_ORG_ID: team_964e6EsImAKgZe01NQmUNF7F
+      VERCEL_PROJECT_ID: prj_3HViKj8ak29achpJuvToi3fjPoEB
+
+    steps:
+      - name: Checkout reviewed main (not the PR source branch)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Confirm app source exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f package.json || { echo "::error::STORE PWA is not on main."; exit 1; }
+
+      - name: Install dependencies and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f package-lock.json ]]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@65.12.1
+
+      - name: Build and deploy production only
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${VERCEL_TOKEN:-}" ]]; then
+            echo "::error::Missing VERCEL_TOKEN in the production GitHub environment."
+            exit 1
+          fi
+          vercel pull --yes --environment=production
+          vercel build --prod
+          url="$(vercel deploy --prebuilt --prod)"
+          {
+            echo "### STORE production deployment"
+            echo "Source: $(git rev-parse HEAD)"
+            echo "Project: $VERCEL_PROJECT_ID"
+            echo "URL: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
