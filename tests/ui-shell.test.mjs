@@ -24,8 +24,11 @@ test('mobile shell keeps menu outside scroll content and hides it for field edit
   assert.match(css, /\.app\.is-editing \.mobile-store-nav\{display:none/)
   assert.match(app, /onFocusCapture=/)
   assert.match(app, /onBlurCapture=/)
-  assert.match(app, /admin-shortcut/)
-  assert.match(css, /\.top-actions>\.admin-shortcut\{display:none/)
+  assert.match(app, /className="top-brand"/)
+  assert.match(app, /className="theme-toggle" role="switch"/)
+  assert.match(app, /aria-checked=\{theme === 'dark'\}/)
+  assert.match(app, /className="top-logout" onClick=\{onSignOut\}/)
+  assert.doesNotMatch(app, /admin-shortcut|session-email|className="breadcrumbs"/)
 })
 
 test('product search does not show fake product and permits explicit result selection', () => {
