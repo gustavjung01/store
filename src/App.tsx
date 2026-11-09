@@ -186,7 +186,7 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
       <div className="workspace">
         <header className="topbar">
           <div className="breadcrumbs"><span className="mobile-brand"><span className="mobile-brand-mark"><Icon name="box" size={19} /></span>STORE</span><span className="desktop-crumb">STORE <span className="crumb-divider">/</span></span><strong>{pane === 'catalog' ? 'Danh mục' : pane === 'excel' ? 'Nhập Excel' : 'Tra cứu'}</strong></div>
-          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Đã kết nối') : 'Ngoại tuyến'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout" type="button" onClick={() => navigate(pane === 'excel' ? 'search' : 'excel')}>{pane === 'excel' ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
+          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Đã kết nối') : 'Ngoại tuyến'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout admin-shortcut" type="button" onClick={() => navigate(pane === 'excel' ? 'search' : 'excel')}>{pane === 'excel' ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
         </header>
         <main ref={mainRef} className="main" id={pane === 'catalog' ? 'danh-muc' : pane === 'excel' ? 'nhap-excel' : 'tra-cuu'}>
           {pane === 'catalog' ? (
