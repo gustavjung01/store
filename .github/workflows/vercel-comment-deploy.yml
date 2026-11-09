@@ -1,6 +1,6 @@
-name: Deploy STORE to Vercel by PR comment
+name: Deploy STORE to Vercel Production by comment
 
-# No Vercel Git Integration, no push/merge deployment.
+# No Git integration; a push or merge never deploys to Vercel.
 on:
   issue_comment:
     types: [created]
@@ -9,30 +9,30 @@ permissions:
   contents: read
 
 concurrency:
-  group: store-deploy-${{ github.event.comment.body == '/deploy production' && 'production' || 'preview' }}
+  group: store-vercel-production
   cancel-in-progress: false
 
 jobs:
   deploy:
+    # Only the repository owner can trigger a production release using
+    # an exact command on a STORE pull request (including merged PRs).
     if: >-
       github.event.issue.pull_request != null &&
       github.event.comment.user.id == 276658950 &&
       github.event.comment.user.login == 'gustavjung01' &&
       github.event.comment.author_association == 'OWNER' &&
-      (github.event.comment.body == '/deploy preview' ||
-       github.event.comment.body == '/deploy production')
+      github.event.comment.body == '/deploy production'
     runs-on: ubuntu-latest
-    environment: ${{ github.event.comment.body == '/deploy production' && 'production' || 'preview' }}
+    environment: production
     timeout-minutes: 20
 
     env:
-      # Public identifiers, deliberately pinned to the STORE Vercel project.
+      # Pinned public identifiers for the STORE project ONLY.
       VERCEL_ORG_ID: team_964e6EsImAKgZe01NQmUNF7F
       VERCEL_PROJECT_ID: prj_3HViKj8ak29achpJuvToi3fjPoEB
-      DEPLOY_COMMAND: ${{ github.event.comment.body }}
 
     steps:
-      - name: Checkout reviewed main (never comment PR head)
+      - name: Checkout reviewed main (not the PR source branch)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
@@ -43,22 +43,13 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Guard production release and app readiness
-        env:
-          PRODUCTION_ENABLED: ${{ vars.ENABLE_STORE_PRODUCTION_DEPLOY }}
+      - name: Confirm app source exists
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! -f package.json ]]; then
-            echo "::error::STORE has no PWA application in main yet."
-            exit 1
-          fi
-          if [[ "$DEPLOY_COMMAND" == "/deploy production" && "$PRODUCTION_ENABLED" != "true" ]]; then
-            echo "::error::Production is locked: set ENABLE_STORE_PRODUCTION_DEPLOY=true only after configuring the production environment reviewer and approval."
-            exit 1
-          fi
+          test -f package.json || { echo "::error::STORE PWA is not on main."; exit 1; }
 
-      - name: Install dependencies and verify app
+      - name: Install dependencies and test
         shell: bash
         run: |
           set -euo pipefail
@@ -74,25 +65,22 @@ jobs:
       - name: Install pinned Vercel CLI
         run: npm install --global vercel@65.12.1
 
-      - name: Build with Vercel and deploy
+      - name: Build and deploy production only
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
           if [[ -z "${VERCEL_TOKEN:-}" ]]; then
-            echo "::error::Missing VERCEL_TOKEN in the selected GitHub environment."
+            echo "::error::Missing VERCEL_TOKEN in the production GitHub environment."
             exit 1
           fi
-          if [[ "$DEPLOY_COMMAND" == "/deploy production" ]]; then
-            vercel pull --yes --environment=production
-            vercel build --prod
-            url="$(vercel deploy --prebuilt --prod)"
-          else
-            vercel pull --yes --environment=preview
-            vercel build
-            url="$(vercel deploy --prebuilt)"
-          fi
-          echo "Source: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
-          echo "Target: $DEPLOY_COMMAND" >> "$GITHUB_STEP_SUMMARY"
-          echo "Vercel: $url" >> "$GITHUB_STEP_SUMMARY"
+          vercel pull --yes --environment=production
+          vercel build --prod
+          url="$(vercel deploy --prebuilt --prod)"
+          {
+            echo "### STORE production deployment"
+            echo "Source: $(git rev-parse HEAD)"
+            echo "Project: $VERCEL_PROJECT_ID"
+            echo "URL: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
