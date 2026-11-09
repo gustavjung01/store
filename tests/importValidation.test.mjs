@@ -99,10 +99,12 @@ test('mapping duplicate columns between carton and price or unit must be rejecte
 })
 
 test('invalid Excel carton quantity is rejected even when other fields are valid', () => {
-  const result = catalog([
-    { rowNumber:2, companyCode:'00012', name:'Hàng thử',
-      productSpec:{pieceUnit:'quyển', unitsPerCarton:-20} },
-  ], [])
+  const result = validateImport({
+    kind:'catalog', filename:'test-only.xlsx', sheet:'Test',
+    priceTypes:[], defaultPriceTypeId:null,
+    rows:[{ rowNumber:2, companyCode:'00012', name:'Hàng thử',
+      productSpec:{pieceUnit:'quyển', unitsPerCarton:-20} }],
+  })
   assert.equal(result.payload, null)
   assert.match(result.issues[0].message, /số nguyên dương/)
 })
