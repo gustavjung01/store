@@ -28,15 +28,15 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
-      # Temporary transfer for approved DEV hotfix. No environment or secret files.
-      - name: Export reviewed dev Function bundle
+      - name: Smoke test updated Neon DEV Function (anonymous must fail)
         shell: bash
         run: |
-          echo 'STORE_JWT_ISSUER_FIX_BUNDLE_START'
-          base64 -w0 build/function/index.mjs
-          echo
-          echo 'STORE_JWT_ISSUER_FIX_BUNDLE_END'
-
+          set -euo pipefail
+          base='https://br-lucky-violet-aznxmc4n-storeapi.compute.c-3.ap-southeast-1.aws.neon.tech'
+          health="$(curl --max-time 30 --retry 2 -sS -o /dev/null -w '%{http_code}' "$base/health")"
+          denied="$(curl --max-time 30 --retry 2 -sS -o /dev/null -w '%{http_code}' "$base/me")"
+          echo "health=$health; anonymous_me=$denied"
+          [[ "$health" == "200" ]] && [[ "$denied" == "401" ]]
 
   postgres-import-integration:
     name: PostgreSQL import transaction tests (isolated)
