@@ -151,8 +151,8 @@ export async function stageImport(pool: Pool, actor: string, raw: unknown) {
         const afterSpec = payload.kind === 'catalog'
           ? normalizeProductSpec({ ...beforeSpec, ...row.productSpec }) : beforeSpec
         if (!nextUnit) missingUnitCount++
-        if (before?.quantity !== null && before?.quantity !== undefined && before.unit && nextUnit &&
-            before.unit.trim().toLocaleLowerCase('vi') !== nextUnit.trim().toLocaleLowerCase('vi')) changedUnitWithStock++
+        if (before?.quantity !== null && before?.quantity !== undefined &&
+            (before.unit ?? '').trim().toLocaleLowerCase('vi') !== (nextUnit ?? '').trim().toLocaleLowerCase('vi')) changedUnitWithStock++
         if (action === 'new') newCount++
         else if (action === 'changed') changedCount++
         else unchangedCount++
