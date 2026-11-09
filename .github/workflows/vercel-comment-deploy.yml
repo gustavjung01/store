@@ -1,6 +1,6 @@
-name: Manual Vercel deploy by PR comment
+name: Deploy STORE to Vercel by PR comment
 
-# No push, pull_request, or merge trigger: only an owner's exact comment.
+# No Vercel Git Integration, no push/merge deployment.
 on:
   issue_comment:
     types: [created]
@@ -9,63 +9,90 @@ permissions:
   contents: read
 
 concurrency:
-  group: store-vercel-${{ github.event.comment.body == '/deploy production' && 'production' || 'preview' }}
+  group: store-deploy-${{ github.event.comment.body == '/deploy production' && 'production' || 'preview' }}
   cancel-in-progress: false
 
 jobs:
   deploy:
     if: >-
       github.event.issue.pull_request != null &&
+      github.event.comment.user.id == 276658950 &&
       github.event.comment.user.login == 'gustavjung01' &&
       github.event.comment.author_association == 'OWNER' &&
       (github.event.comment.body == '/deploy preview' ||
        github.event.comment.body == '/deploy production')
     runs-on: ubuntu-latest
-    # Configure a required reviewer on the "production" GitHub environment
-    # before supplying production credentials.
     environment: ${{ github.event.comment.body == '/deploy production' && 'production' || 'preview' }}
+    timeout-minutes: 20
+
+    env:
+      # Public identifiers, deliberately pinned to the STORE Vercel project.
+      VERCEL_ORG_ID: team_964e6EsImAKgZe01NQmUNF7F
+      VERCEL_PROJECT_ID: prj_3HViKj8ak29achpJuvToi3fjPoEB
+      DEPLOY_COMMAND: ${{ github.event.comment.body }}
+
     steps:
-      - name: Check out reviewed main (never PR head)
+      - name: Checkout reviewed main (never comment PR head)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
           persist-credentials: false
 
-      - name: Verify Vercel CLI version is pinned
-        shell: bash
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Guard production release and app readiness
         env:
-          VERCEL_CLI_VERSION: ${{ vars.VERCEL_CLI_VERSION }}
+          PRODUCTION_ENABLED: ${{ vars.ENABLE_STORE_PRODUCTION_DEPLOY }}
+        shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "$VERCEL_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Set VERCEL_CLI_VERSION to a reviewed exact version (e.g. N.N.N)."
+          if [[ ! -f package.json ]]; then
+            echo "::error::STORE has no PWA application in main yet."
             exit 1
           fi
-          npm install --global "vercel@$VERCEL_CLI_VERSION"
+          if [[ "$DEPLOY_COMMAND" == "/deploy production" && "$PRODUCTION_ENABLED" != "true" ]]; then
+            echo "::error::Production is locked: set ENABLE_STORE_PRODUCTION_DEPLOY=true only after configuring the production environment reviewer and approval."
+            exit 1
+          fi
 
-      - name: Build and deploy to Vercel
+      - name: Install dependencies and verify app
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f package-lock.json ]]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@65.12.1
+
+      - name: Build with Vercel and deploy
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-          COMMENT_COMMAND: ${{ github.event.comment.body }}
         run: |
           set -euo pipefail
-          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
-            if [[ -z "${!key:-}" ]]; then
-              echo "::error::$key is not configured for this GitHub environment."
-              exit 1
-            fi
-          done
-          if [[ "$COMMENT_COMMAND" == "/deploy production" ]]; then
+          if [[ -z "${VERCEL_TOKEN:-}" ]]; then
+            echo "::error::Missing VERCEL_TOKEN in the selected GitHub environment."
+            exit 1
+          fi
+          if [[ "$DEPLOY_COMMAND" == "/deploy production" ]]; then
             vercel pull --yes --environment=production
             vercel build --prod
-            vercel deploy --prebuilt --prod
+            url="$(vercel deploy --prebuilt --prod)"
           else
             vercel pull --yes --environment=preview
             vercel build
-            vercel deploy --prebuilt
+            url="$(vercel deploy --prebuilt)"
           fi
-          echo "Deployed source commit: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
-          echo "Command: $COMMENT_COMMAND" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Target: $DEPLOY_COMMAND" >> "$GITHUB_STEP_SUMMARY"
+          echo "Vercel: $url" >> "$GITHUB_STEP_SUMMARY"
