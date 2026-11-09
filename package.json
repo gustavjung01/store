@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.server.json",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bundle:function": "esbuild server/api.ts --bundle --platform=node --target=node24 --format=esm --outfile=build/function/index.mjs --external:pg-native"
   },
   "dependencies": {
     "react": "19.3.1",
