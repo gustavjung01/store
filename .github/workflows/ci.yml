@@ -28,3 +28,12 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
+
+      # One-time read-only transfer of compiled source; no environment secrets.
+      - name: Export compiled dev Function
+        shell: bash
+        run: |
+          echo 'STORE_IMPORT_BUNDLE_START'
+          base64 -w0 build/function/index.mjs
+          echo
+          echo 'STORE_IMPORT_BUNDLE_END'
