@@ -69,3 +69,11 @@ Không tự tạo tài khoản admin, không tự gán quyền cho user mới. V
 - Neon Functions sử dụng `@neon/functions` + `pg` pool và JWT `jose`.
 - Trước production, kiểm thử đầy đủ: 401 chưa login, 403 chưa cấp quyền, đúng quyền viewer/admin, tìm mã có 0 đầu, phân trang, logout/cache, offline; cấu hình email delivery production và kiểm tra HTTPS/CORS.
 - **Không áp migration/enable auth lên Neon main, không thay Vercel production env, không deploy production** trước khi Owner duyệt bước chuyển production.
+
+## Sửa lỗi đăng nhập xong nhưng chưa có quyền STORE (2026-11-09)
+
+- Frontend dùng `src/authJwt.ts` để gọi trực tiếp **GET `<NEON_AUTH_BASE_URL>/token`** với cookie HttpOnly theo `credentials: include`. Không sử dụng kết quả cache từ `authClient.token()` của SDK beta làm JWT.
+- Chỉ chấp nhận giá trị trả về có cấu trúc JWT, không lưu token vào IndexedDB, URL hoặc log. Backend vẫn phải xác minh chữ ký bằng JWKS và kiểm tra `app_members`.
+- Backend xác minh `issuer` và `audience` là **Neon Auth BASE_URL đầy đủ** (bao gồm `/store/auth`), không chỉ domain.
+- Trạng thái phiên Better Auth chưa đủ quyền sẽ chỉ hiện màn hình xác minh/thử lại/đăng xuất, **không render giao diện danh mục/nhập Excel** trước khi `/me` xác nhận quyền.
+- Vẫn phải kiểm tra đăng nhập từ thiết bị thật sau deploy: GET `/token` trả JWT, GET `/me` 200 sau khi được cấp quyền; email và mật khẩu người dùng không cần gửi lại.

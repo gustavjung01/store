@@ -20,7 +20,8 @@ if (!databaseUrl || !authBase || !jwksUrl) {
 const pool = new Pool({ connectionString: databaseUrl, max: 5 })
 attachDatabasePool(pool)
 const jwks = createRemoteJWKSet(new URL(jwksUrl))
-const authIssuer = new URL(authBase).origin
+// Better Auth JWT uses its complete BASE_URL (including /store/auth) for iss/aud.
+const authIssuer = authBase.replace(/\/+$/, '')
 const allowedOrigins = new Set(['https://store-nu-opal.vercel.app'])
 // Never allow localhost as a production CORS origin.
 if (process.env.NEON_BRANCH !== 'main') allowedOrigins.add('http://localhost:5173')
@@ -57,6 +58,7 @@ app.use('*', async (c, next) => {
   try {
     const { payload } = await jwtVerify(match[1], jwks, {
       issuer: authIssuer,
+      audience: authIssuer,
       algorithms: ['EdDSA'],
     })
     const userId = payload.sub
