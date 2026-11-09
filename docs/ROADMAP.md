@@ -22,6 +22,12 @@
 - [ ] Duyệt migration production Neon và cấu hình Auth/Function trên production theo Owner.
 - [ ] Test mobile thật và offline/cache/logout; kiểm thử phân quyền e2e.
 
+## UI — Calm dark mode & minimal header (09/11/2026)
+- [x] Topbar chỉ logo STORE, switch Sáng/Tối ở chính giữa và Đăng xuất; không email, breadcrumbs, trạng thái kết nối hay shortcut phụ.
+- [x] Dark palette dịu, áp dụng auth, tra cứu, danh mục, Excel, preview, toast, dialog; color-scheme cho native controls.
+- [x] Nhớ theme theo thiết bị và khởi tạo trước first paint, nâng phiên bản PWA shell cache; không đụng DB/import.
+- [ ] Test CI PR và UAT thật tại 320/360/390/768/1280px, iOS/Android installed PWA.
+
 ## UI — Mobile app shell (09/11/2026)
 - [x] Đọc quy chuẩn UI FBMN và chuẩn hóa contract riêng STORE: token, geometry, text/status, giảm hiệu ứng và giữ độc lập thương hiệu.
 - [x] Đã code shell PWA full-height, bottom navigation trong viewport, safe area, chế độ typing, tra cứu có chọn kết quả và editor danh mục dạng dialog.

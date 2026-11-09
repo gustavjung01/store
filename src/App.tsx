@@ -7,7 +7,7 @@ import ExcelImport from './ExcelImport'
 import CatalogManager from './CatalogManager'
 import type { CatalogSnapshot, PriceType, ProductRecord } from './domain'
 
-type IconName = 'search' | 'box' | 'list' | 'upload' | 'settings' | 'image' | 'chevron' | 'clock' | 'check' | 'wifi' | 'arrow'
+type IconName = 'search' | 'box' | 'list' | 'upload' | 'settings' | 'image' | 'chevron' | 'clock' | 'check' | 'wifi' | 'arrow' | 'sun' | 'moon'
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const drawing: Record<IconName, ReactNode> = {
@@ -22,6 +22,8 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     check: <path d="m4 12 5 5L20 6" />,
     wifi: <><path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M9 16a5 5 0 0 1 6 0" /><circle cx="12" cy="20" r="1" /></>,
     arrow: <><path d="M4 12h16m-7-7 7 7-7 7" /></>,
+    sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></>,
+    moon: <path d="M20.5 14.4A8.5 8.5 0 0 1 9.6 3.5 8.5 8.5 0 1 0 20.5 14.4Z" />,
   }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{drawing[name]}</svg>
 }
@@ -127,10 +129,6 @@ function paneFromHash(): Pane {
 function Sidebar({ isAdmin, pane, onNavigate }: { isAdmin: boolean; pane: Pane; onNavigate: (pane: Pane) => void }) {
   return (
     <aside className="sidebar">
-      <div className="brand">
-        <span className="brand-icon"><Icon name="box" size={27} /></span>
-        <div><strong>STORE</strong><span>SALES INVENTORY</span></div>
-      </div>
       <div className="menu-label">ĐIỀU HƯỚNG</div>
       <nav aria-label="Điều hướng STORE" className="side-nav">
         <button className={'nav-item nav-button' + (pane === 'search' ? ' nav-active' : '')} type="button" aria-current={pane === 'search' ? 'page' : undefined} onClick={() => onNavigate('search')}><Icon name="search" size={20} />Tra cứu hàng hóa</button>
@@ -146,7 +144,6 @@ interface AppProps {
   snapshot: CatalogSnapshot
   catalogStatus: string
   cacheScope: string | null
-  userEmail: string
   isLoading: boolean
   onReload: () => void
   onSignOut: () => void
@@ -155,8 +152,20 @@ interface AppProps {
   getAdminToken: () => Promise<string>
 }
 
-export default function App({ snapshot, catalogStatus, cacheScope, userEmail, isLoading, onReload, onSignOut, role, apiBase, getAdminToken }: AppProps) {
+export default function App({ snapshot, catalogStatus, cacheScope, isLoading, onReload, onSignOut, role, apiBase, getAdminToken }: AppProps) {
   const [pane, setPane] = useState<Pane>(paneFromHash)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
+  )
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    // Apply synchronously; storage may be blocked in private browser contexts.
+    document.documentElement.dataset.theme = next
+    document.documentElement.style.colorScheme = next
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next === 'dark' ? '#0d1118' : '#f5f7fb')
+    try { window.localStorage.setItem('store-theme', next) } catch { /* memory-only fallback */ }
+    setTheme(next)
+  }
   const mainRef = useRef<HTMLElement>(null)
   const [editingField, setEditingField] = useState(false)
   useEffect(() => {
@@ -210,8 +219,15 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
       <Sidebar isAdmin={role === 'admin'} pane={pane} onNavigate={navigate} />
       <div className="workspace">
         <header className="topbar">
-          <div className="breadcrumbs"><span className="mobile-brand"><span className="mobile-brand-mark"><Icon name="box" size={19} /></span>STORE</span><span className="desktop-crumb">STORE <span className="crumb-divider">/</span></span><strong>{pane === 'catalog' ? 'Danh mục' : pane === 'excel' ? 'Nhập Excel' : 'Tra cứu'}</strong></div>
-          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Có mạng') : 'Ngoại tuyến'}</span><span className="session-email">{userEmail}</span>{role === 'admin' && <button className="top-logout admin-shortcut" type="button" onClick={() => navigate(pane === 'excel' ? 'search' : 'excel')}>{pane === 'excel' ? 'Tra cứu' : 'Nhập Excel'}</button>}<button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
+          <div className="top-brand" aria-label="STORE"><span className="top-brand-mark"><Icon name="box" size={19} /></span><strong>STORE</strong></div>
+          <button type="button" className="theme-toggle" role="switch" aria-checked={theme === 'dark'}
+            aria-label={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+            title={theme === 'dark' ? 'Đang dùng giao diện tối' : 'Đang dùng giao diện sáng'} onClick={toggleTheme}>
+            <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={16} />
+            <span>{theme === 'dark' ? 'Tối' : 'Sáng'}</span>
+            <span className={'theme-track' + (theme === 'dark' ? ' is-dark' : '')} aria-hidden="true"><span /></span>
+          </button>
+          <div className="top-actions"><button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
         </header>
         <main ref={mainRef} className="main" id={pane === 'catalog' ? 'danh-muc' : pane === 'excel' ? 'nhap-excel' : 'tra-cuu'}>
           {pane === 'catalog' ? (

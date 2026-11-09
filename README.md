@@ -6,6 +6,12 @@ Repository duy nhất: https://github.com/gustavjung01/store
 
 ## Giao diện PWA
 
+- Thanh trên giản lược: **logo STORE · công tắc Sáng/Tối · Đăng xuất** (giữa là công tắc, kể cả mobile); điều hướng ở sidebar desktop hoặc dock mobile.
+- Dark mode màu than và xanh sage dịu, không mảng trắng hay hiệu ứng phát sáng; áp dụng cả đăng nhập, tra cứu, danh mục, Excel, cảnh báo, hộp thoại.
+- Chế độ chọn lưu tại `localStorage['store-theme']` (chỉ lưu lựa chọn màu); lần đầu theo `prefers-color-scheme`. Khởi tạo trong HTML trước render để tránh lóe trắng khi tải lại; đổi `theme-color` theo chế độ.
+- Lớp màu riêng tại `src/store-theme.css`, tải sau `src/store-ui.css`.
+
+
 - Màn tra cứu dùng khung ứng dụng `100dvh`: header và thanh điều hướng mobile cố định trong shell, chỉ nội dung cuộn; hỗ trợ safe-area và bàn phím.
 - Các nút, form, màu trạng thái dùng [STORE UI contract](docs/STORE_UI_CONTRACT.md), tham khảo nguyên tắc hình học FBMN nhưng giữ thương hiệu và dữ liệu riêng.
 - **Chỉ khi cài PWA vào màn hình chính** mới có chế độ standalone theo hỗ trợ của iOS/Android; mở trong tab trình duyệt không thể tự ẩn address bar.

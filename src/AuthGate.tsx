@@ -274,7 +274,7 @@ export default function AuthGate() {
 
   return (
     <>
-      <App snapshot={snapshot} catalogStatus={status} cacheScope={scope} userEmail={signedIn.email} isLoading={loading} role={role} apiBase={storeApiUrl} getAdminToken={adminToken}
+      <App snapshot={snapshot} catalogStatus={status} cacheScope={scope} isLoading={loading} role={role} apiBase={storeApiUrl} getAdminToken={adminToken}
         onReload={() => { void load(signedIn) }} onSignOut={() => { void signOut() }} />
       {error && <div className="session-error" role="alert">{error}<button type="button" onClick={() => { void load(signedIn) }}>Thử lại</button></div>}
     </>
