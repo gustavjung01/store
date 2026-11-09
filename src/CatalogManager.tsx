@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { formatVnd, normalizeCode, priceFor, stockState } from './domain'
 import type { CatalogSnapshot, ProductRecord } from './domain'
@@ -41,6 +41,8 @@ export default function CatalogManager({
   const [onlyUnnamed, setOnlyUnnamed] = useState(false)
   const [visible, setVisible] = useState(40)
   const [editor, setEditor] = useState<Editor | null>(null)
+  const editorBaseline = useRef<Editor | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
@@ -88,17 +90,65 @@ export default function CatalogManager({
   }, [isAdmin, isOnline, loadEdits])
 
   function startEdit(product: ProductRecord) {
-    setEditor({
+    const original: Editor = {
       mode: 'update', companyCode: product.companyCode, name: product.name ?? '',
       sku: product.sku ?? '', unit: product.unit ?? '', category: product.category ?? '',
-    })
+    }
+    editorBaseline.current = original
+    setEditor({ ...original })
     setError('');setMessage('')
   }
 
   function startCreate() {
+    editorBaseline.current = { ...blank }
     setEditor({ ...blank })
     setError('');setMessage('')
   }
+
+  function closeEditor() {
+    if (!editor || saving) return
+    if (JSON.stringify(editor) !== JSON.stringify(editorBaseline.current) &&
+      !window.confirm('Thông tin chưa lưu sẽ bị bỏ qua. Đóng cửa sổ chỉnh sửa?')) return
+    setEditor(null)
+    editorBaseline.current = null
+  }
+
+  useEffect(() => {
+    if (!editor) return
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const focusTask = window.requestAnimationFrame(() => {
+      dialogRef.current?.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus()
+    })
+    return () => {
+      window.cancelAnimationFrame(focusTask)
+      previouslyFocused?.focus()
+    }
+  }, [Boolean(editor)])
+
+  useEffect(() => {
+    if (!editor) return
+    function onDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeEditor()
+        return
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return
+      const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]',
+      )).filter(element => element.getClientRects().length > 0)
+      if (!controls.length) return
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault(); last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus()
+      }
+    }
+    document.addEventListener('keydown', onDialogKeyDown)
+    return () => document.removeEventListener('keydown', onDialogKeyDown)
+  }, [editor, saving])
 
   function patch(patch: Partial<Editor>) {
     setEditor(old => old ? { ...old, ...patch } : null)
@@ -135,6 +185,7 @@ export default function CatalogManager({
         throw new Error(detail)
       }
       setEditor(null)
+      editorBaseline.current = null
       setMessage('Đã lưu sản phẩm vào Neon. Đang đồng bộ lại danh mục để tra cứu.')
       onSaved()
     } catch (cause) {
@@ -166,11 +217,13 @@ export default function CatalogManager({
       </div>
 
       {isAdmin && editor && (
-        <form className="catalog-form" onSubmit={event => { void submit(event) }}>
+        <div className="catalog-dialog-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) closeEditor() }}>
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="catalog-dialog-title" className="catalog-dialog">
+        <form className="catalog-form catalog-dialog-form" onSubmit={event => { void submit(event) }}>
           <div className="catalog-form-heading">
-            <div><h2>{editor.mode === 'create' ? 'Tạo sản phẩm mới' : 'Hoàn thiện / sửa sản phẩm'}</h2>
+            <div><h2 id="catalog-dialog-title">{editor.mode === 'create' ? 'Tạo sản phẩm mới' : 'Hoàn thiện / sửa sản phẩm'}</h2>
               <p>{editor.mode === 'create' ? 'Nhập mã thực tế và tên hàng, không cần khai tồn lúc này.' : 'Mã CTY không được thay đổi để bảo toàn giá và lịch sử tồn.'}</p></div>
-            <button type="button" className="catalog-secondary" onClick={() => setEditor(null)}>Đóng</button>
+            <button type="button" className="catalog-secondary" onClick={closeEditor} disabled={saving} aria-label="Đóng cửa sổ chỉnh sửa">Đóng</button>
           </div>
           <div className="catalog-form-grid">
             <label><span>Mã CTY <b>*</b></span><input type="text" required maxLength={120} value={editor.companyCode}
@@ -185,12 +238,14 @@ export default function CatalogManager({
           <p className="catalog-form-note">Giá bán và số tồn không thay đổi khi lưu thông tin sản phẩm. Có thể nhập bảng giá và tồn từ Excel sau.</p>
           {error && <div className="catalog-error" role="alert">{error}</div>}
           <div className="catalog-form-actions">
-            <button type="button" className="catalog-secondary" disabled={saving} onClick={() => setEditor(null)}>Hủy</button>
+            <button type="button" className="catalog-secondary" disabled={saving} onClick={closeEditor}>Hủy</button>
             <button type="submit" className="catalog-primary" disabled={saving || isLoading || !isOnline}>
               {saving ? 'Đang lưu...' : editor.mode === 'create' ? 'Tạo sản phẩm' : 'Lưu thông tin'}
             </button>
           </div>
         </form>
+          </div>
+        </div>
       )}
 
       {message && <p className="catalog-success" role="status">{message}</p>}
