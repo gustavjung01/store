@@ -85,18 +85,20 @@ app.get('/catalog/snapshot', async (c) => {
   try { limit = parsePageLimit(c.req.query('limit')) } catch { return c.json({ error: 'limit không hợp lệ' }, 400) }
   const after = c.req.query('after') ?? ''
   if (after.length > 160) return c.json({ error: 'after quá dài' }, 400)
+  const db = await pool.connect()
   try {
+    await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
     const [types, settings, state, items] = await Promise.all([
-      pool.query<{ id: string; label: string }>(
+      db.query<{ id: string; label: string }>(
         'SELECT id,label FROM public.price_types WHERE active = true ORDER BY sort_order,label',
       ),
-      pool.query<{ default_price_type_id: string | null }>(
+      db.query<{ default_price_type_id: string | null }>(
         'SELECT default_price_type_id FROM public.price_settings WHERE id = 1',
       ),
-      pool.query<{ updated_at: Date | null }>(
-        'SELECT updated_at FROM public.catalog_state WHERE id = 1',
+      db.query<{ updated_at: Date | null }>(
+        'SELECT updated_at,version::text AS version FROM public.catalog_state WHERE id = 1',
       ),
-      pool.query<DatabaseCatalogRow>(
+      db.query<DatabaseCatalogRow>(
         `SELECT ${columns}
          FROM (SELECT * FROM public.products WHERE company_code_key > $1 ORDER BY company_code_key LIMIT $2) p
          ${joins}
@@ -105,17 +107,22 @@ app.get('/catalog/snapshot', async (c) => {
         [after, limit + 1],
       ),
     ])
+    await db.query('COMMIT')
     const rows = items.rows.slice(0, limit)
     return c.json({
       products: rows.map(toProduct),
       priceTypes: types.rows,
       defaultPriceTypeId: settings.rows[0]?.default_price_type_id ?? null,
       syncedAt: new Date().toISOString(),
+      version: state.rows[0]?.version ?? '0',
       dataUpdatedAt: state.rows[0]?.updated_at?.toISOString() ?? null,
       nextCursor: items.rows.length > limit ? rows[rows.length - 1].company_code_key : null,
     })
   } catch {
+    await db.query('ROLLBACK').catch(() => {})
     return c.json({ error: 'Không đọc được danh mục STORE' }, 503)
+  } finally {
+    db.release()
   }
 })
 
