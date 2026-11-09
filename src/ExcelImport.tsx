@@ -60,6 +60,7 @@ export default function ExcelImport({
   const [message,setMessage] = useState('')
   const [error,setError] = useState('')
 
+  const latestAppliedId = batches.find(batch => batch.status === 'applied')?.id
   const sheet = sheets[sheetIndex]
   const headers = useMemo(() => {
     if (!sheet) return []
@@ -242,7 +243,7 @@ export default function ExcelImport({
       <div className="excel-card">
         <h3>Lịch sử nhập gần đây</h3><p className="excel-notice">Chỉ được hoàn tác lượt nhập mới nhất, để tránh làm sai các thay đổi về sau.</p>
         {batches.length===0?<p>Chưa có lượt nhập nào.</p>:<div className="excel-history">
-          {batches.map((batch,i)=><div key={batch.id}><div><strong>{batch.filename}</strong><small>{batch.kind==='inventory'?'Tồn':'Danh mục/giá'} · {batch.row_count} dòng · {batch.status} · {new Date(batch.created_at).toLocaleString('vi-VN')}</small></div>{i===0 && batch.status==='applied' && <button disabled={busy} type="button" onClick={()=>{void rollback(batch.id)}}>Hoàn tác</button>}</div>)}
+          {batches.map(batch=><div key={batch.id}><div><strong>{batch.filename}</strong><small>{batch.kind==='inventory'?'Tồn':'Danh mục/giá'} · {batch.row_count} dòng · {batch.status} · {new Date(batch.created_at).toLocaleString('vi-VN')}</small></div>{batch.id === latestAppliedId && <button disabled={busy} type="button" onClick={()=>{void rollback(batch.id)}}>Hoàn tác</button>}</div>)}
         </div>}
       </div>
     </section>
