@@ -22,6 +22,13 @@
 - [ ] Duyệt migration production Neon và cấu hình Auth/Function trên production theo Owner.
 - [ ] Test mobile thật và offline/cache/logout; kiểm thử phân quyền e2e.
 
+## UI — Mobile app shell (09/11/2026)
+- [x] Đọc quy chuẩn UI FBMN và chuẩn hóa contract riêng STORE: token, geometry, text/status, giảm hiệu ứng và giữ độc lập thương hiệu.
+- [x] Đã code shell PWA full-height, bottom navigation trong viewport, safe area, chế độ typing, tra cứu có chọn kết quả và editor danh mục dạng dialog.
+- [x] Kiểm thử contract tĩnh tại `tests/ui-shell.test.mjs`; CI PR cần xác minh typecheck/test/build.
+- [ ] UAT 360/390/768/1280/1440 và điện thoại iOS/Android thực tế, kiểm installed standalone, keyboard, scroll, auth, modal, offline, overflow.
+- [ ] Chỉ sau khi UI được nghiệm thu mới tiến hành cải thiện UI/luồng nhập Excel và thuộc tính quy cách.
+
 ## P2 — Import Excel an toàn
 - [x] Đã viết và CI kiểm thử UI/API admin import `.xlsx` danh mục và nhiều loại giá; chọn sheet, mapping, preview. Chưa xác nhận bằng Excel thật.
 - [x] Đã viết validation tồn mã CTY + số lượng; kiểm tra 0/NULL, trùng, âm, mã mới; test unit thành công.
