@@ -16,6 +16,7 @@
     "allowImportingTsExtensions": true
   },
   "include": [
-    "server/**/*.ts"
+    "server/**/*.ts",
+    "neon.ts"
   ]
 }

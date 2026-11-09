@@ -1,45 +1,39 @@
-# STORE — Tra giá và tồn kho khi đi thị trường
+# STORE — Tra giá và tồn kho trên điện thoại
 
-Repository: https://github.com/gustavjung01/store
+Repository duy nhất: https://github.com/gustavjung01/store
 
-**Trạng thái:** Đang xây dựng PWA. Bộ khung frontend đã được mở qua PR, **chưa có Neon/Auth/Excel thực tế và chưa deploy production**.
+Ứng dụng **PWA React/TypeScript**, dữ liệu gốc tại Neon riêng STORE, bộ nhớ tra cứu tại IndexedDB. Mã CTY được nhập dạng text, số tồn chỉ là **snapshot theo Excel**, không phải realtime.
 
-## Mục tiêu
+## Người dùng
 
-Mở ứng dụng trên điện thoại, nhập **mã CTY / SKU / tên**, xem **tên hàng + ảnh + giá mặc định + số tồn**. Khi cần, mở **Xem tất cả giá**. Tồn là snapshot theo lần nhập Excel gần nhất, **không phải realtime**.
+- Một ô tìm kiếm mã CTY, SKU, tên sản phẩm.
+- Hiện tên, ĐVT, **giá mặc định**, tồn kho và thời gian nhập Excel.
+- Nút **Xem tất cả giá** để mở các bảng giá khác; không tự tạo giá.
+- Dữ liệu riêng tư cần Neon Auth và tài khoản được cấp quyền `viewer/admin`.
 
-- Danh mục và nhiều loại giá import từ Excel; loại giá mặc định do admin cấu hình.
-- Tồn nhập riêng bằng Excel có hai cột tối thiểu mã CTY + số lượng.
-- Neon PostgreSQL là nguồn dữ liệu gốc. IndexedDB tăng tốc tìm kiếm sau đăng nhập/đồng bộ; cache không phải dữ liệu gốc.
-- Đọc ảnh R2 được Owner cho phép theo mã; không dùng chung DB/secrets FBMN.
+## Lập trình
 
-## Chạy bộ khung tại máy phát triển
-
-Yêu cầu Node.js **22.12+** và npm.
+Node.js >=22.12 và npm:
 
 ```bash
 npm install
-npm run dev
 npm run typecheck
 npm test
 npm run build
+npm run dev
 ```
 
-Chưa có dữ liệu công ty nên UI cố ý hiển thị placeholder và trạng thái **chưa đồng bộ Neon**, không dựng dữ liệu mẫu giả.
+Để dùng đăng nhập và dữ liệu thật, cấu hình `VITE_NEON_AUTH_URL` và `VITE_STORE_API_URL` theo `.env.example`. **Không bao giờ dùng DB URL, Neon API key hoặc Vercel token trong frontend.**
 
-**Bảo mật:** `src/cache.ts` chuẩn bị IndexedDB nhưng giao diện chưa đọc/ghi cache cho tới khi có đăng nhập và phân quyền. Service worker chỉ cache bộ vỏ ứng dụng tĩnh.
+Hiện Neon Auth và schema đã được chuẩn bị trên **nhánh Neon phát triển**; backend Function/production tích hợp cần nghiệm thu riêng. Không có file Excel, tài khoản hay giá/tồn thật trong repo.
 
-## Tài liệu
+## Hạ tầng
 
-- [AGENTS.md](AGENTS.md): quy tắc bắt buộc.
-- [CHATGPT_PROJECT_INSTRUCTIONS.md](CHATGPT_PROJECT_INSTRUCTIONS.md): chỉ dẫn project.
-- [docs/ROADMAP.md](docs/ROADMAP.md): giai đoạn và nghiệm thu.
-- [docs/EXCEL_IMPORT_SPEC.md](docs/EXCEL_IMPORT_SPEC.md): import tồn kho.
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): lựa chọn PWA/Neon/IndexedDB/giá.
-- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): workflow deploy comment (được đề xuất ở PR riêng).
+- Vercel project `store` của `gustavjung01`: production triển khai theo GitHub comment `/deploy production` của Owner, không có auto-deploy.
+- Neon project `patient-feather-65846936`, nhánh `dev-store-auth-catalog`: Auth bật, migration mẫu `db/migrations/0001_store_catalog.sql` đã kiểm thử. Neon `main` chưa bị migrate.
+- Backend nguồn tại `server/api.ts` + config `neon.ts`. JWT và quyền được kiểm ở server, không tin client.
+- IndexedDB chỉ đọc sau khi user có session và được API kiểm quyền; xóa khi logout.
 
-## Deploy
+Tài liệu: [AGENTS.md](AGENTS.md), [ROADMAP](docs/ROADMAP.md), [Excel](docs/EXCEL_IMPORT_SPEC.md), [Kiến trúc](docs/ARCHITECTURE.md), [Neon API/Auth](docs/NEON_AUTH_API.md), [Deploy](docs/DEPLOYMENT.md).
 
-Vercel project STORE thuộc `gustavjung01`, **không kết nối Git Integration**, nên push/merge GitHub không tự deploy. GitHub CI PR chỉ chạy kiểm thử.
-
-Workflow deploy qua comment do Owner duyệt ở PR #1; cần cấu hình token riêng qua GitHub Environments, không gửi bí mật qua chat. **Không deploy hay migrate DB production khi chưa được Owner phê duyệt.**
+**Không tự deploy/migrate production, không ghi đè dữ liệu và không thao tác FBMN.**
