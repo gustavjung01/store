@@ -19,6 +19,15 @@ export default function AuthGate() {
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [resetToken, setResetToken] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('token'),
+  )
+  const [recoveryView, setRecoveryView] = useState<'login' | 'request' | 'sent' | 'reset'>(
+    () => new URLSearchParams(window.location.search).has('token') ? 'reset' : 'login',
+  )
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [recoveryMessage, setRecoveryMessage] = useState('')
 
   const load = useCallback(async (user: SignedIn) => {
     if (!authClient || !storeApiUrl) return
@@ -54,6 +63,58 @@ export default function AuthGate() {
       setLoading(false)
     }
   }, [])
+
+  // Better Auth redirects here with a short-lived reset token in the URL.
+  // Remove it from browser history immediately; never log or persist it.
+  useEffect(() => {
+    if (resetToken) {
+      window.history.replaceState(window.history.state, '', window.location.pathname + window.location.hash)
+    }
+  }, [])
+
+  async function requestReset(event: React.FormEvent) {
+    event.preventDefault()
+    if (!authClient) return
+    setLoading(true)
+    setError('')
+    try {
+      const result = await authClient.requestPasswordReset({
+        email: email.trim(),
+        redirectTo: window.location.origin + '/',
+      })
+      if (result.error) throw new Error(result.error.message || 'Không gửi được email đặt mật khẩu')
+      setRecoveryView('sent')
+      setRecoveryMessage('Nếu email đã có tài khoản STORE, Neon Auth sẽ gửi đường dẫn đặt mật khẩu. Hãy kiểm tra cả thư mục Spam.')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Không gửi được email đặt mật khẩu')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function finishReset(event: React.FormEvent) {
+    event.preventDefault()
+    if (!authClient || !resetToken) return
+    setError('')
+    if (newPassword.length < 8 || newPassword !== confirmPassword) {
+      setError('Mật khẩu cần ít nhất 8 ký tự và hai lần nhập phải khớp nhau')
+      return
+    }
+    setLoading(true)
+    try {
+      const result = await authClient.resetPassword({ token: resetToken, newPassword })
+      if (result.error) throw new Error(result.error.message || 'Không đặt lại được mật khẩu')
+      setResetToken(null)
+      setNewPassword('')
+      setConfirmPassword('')
+      setRecoveryView('login')
+      setRecoveryMessage('Mật khẩu đã được cập nhật. Anh có thể đăng nhập STORE.')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Không đặt lại được mật khẩu')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -127,6 +188,43 @@ export default function AuthGate() {
     return <div className="auth-shell"><div className="auth-panel"><h1>STORE</h1><p>Chưa cấu hình Neon Auth hoặc STORE API cho môi trường này.</p><p>Không tải dữ liệu doanh nghiệp khi thiếu cấu hình xác thực.</p></div></div>
   }
 
+  if (!signedIn && recoveryView === 'reset') {
+    return (
+      <main className="auth-shell">
+        <form className="auth-panel" onSubmit={(event) => { void finishReset(event) }}>
+          <div className="auth-mark">S</div>
+          <h1>Đặt mật khẩu STORE</h1>
+          <p>Đường dẫn này được gửi đến email đã đăng ký trong Neon Auth.</p>
+          <label htmlFor="new-password">Mật khẩu mới</label>
+          <input id="new-password" type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          <label htmlFor="confirm-password">Nhập lại mật khẩu</label>
+          <input id="confirm-password" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          <button type="submit" className="auth-submit" disabled={loading || !resetToken}>{loading ? 'Đang lưu...' : 'Lưu mật khẩu mới'}</button>
+          <button type="button" className="auth-text-button" onClick={() => { setRecoveryView('request'); setError(''); setResetToken(null) }}>Yêu cầu đường dẫn mới</button>
+        </form>
+      </main>
+    )
+  }
+
+  if (!signedIn && (recoveryView === 'request' || recoveryView === 'sent')) {
+    return (
+      <main className="auth-shell">
+        <form className="auth-panel" onSubmit={(event) => { void requestReset(event) }}>
+          <div className="auth-mark">S</div>
+          <h1>Thiết lập mật khẩu</h1>
+          <p>Nhập email Admin STORE để nhận đường dẫn đặt mật khẩu từ Neon Auth.</p>
+          <label htmlFor="reset-email">Email</label>
+          <input id="reset-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          {recoveryMessage && <p className="auth-success" role="status">{recoveryMessage}</p>}
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          <button type="submit" className="auth-submit" disabled={loading}>{loading ? 'Đang gửi...' : 'Gửi email đặt mật khẩu'}</button>
+          <button type="button" className="auth-text-button" onClick={() => { setRecoveryView('login'); setError('') }}>Quay lại đăng nhập</button>
+        </form>
+      </main>
+    )
+  }
+
   if (!signedIn) {
     return (
       <main className="auth-shell">
@@ -138,8 +236,10 @@ export default function AuthGate() {
           <input id="login-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
           <label htmlFor="login-password">Mật khẩu</label>
           <input id="login-password" type="password" autoComplete="current-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+          {recoveryMessage && <p className="auth-success" role="status">{recoveryMessage}</p>}
           {error && <p className="auth-error" role="alert">{error}</p>}
           <button disabled={loading} className="auth-submit" type="submit">{loading ? 'Đang xác minh...' : 'Đăng nhập'}</button>
+          <button className="auth-text-button" type="button" onClick={() => { setRecoveryView('request'); setError(''); setRecoveryMessage('') }}>Chưa có mật khẩu / Quên mật khẩu?</button>
           <small>Không cho đăng ký tự do. Liên hệ quản trị viên để được cấp quyền.</small>
         </form>
       </main>

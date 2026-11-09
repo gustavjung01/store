@@ -166,3 +166,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #2bbc
 .nav-button{background:transparent;border:0;color:#cceded;text-align:left;width:100%;cursor:pointer}
 .nav-button:hover{background:#1f4a56}
 @media(max-width:750px){.excel-heading h2{font-size:24px}.excel-heading{flex-direction:column}.excel-card{padding:17px}.excel-grid,.excel-checks{grid-template-columns:1fr}.excel-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.auth-text-button{background:transparent;border:0;color:#168872;font-weight:800;font-size:12px;padding:12px 6px;text-align:center;cursor:pointer}
+.auth-text-button:hover{text-decoration:underline}
+.auth-success{background:#e7f8f0;border:1px solid #bfe8d5;color:#166849;border-radius:10px;padding:11px;line-height:1.6;font-size:12px}

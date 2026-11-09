@@ -11,6 +11,7 @@ Repository duy nhất: https://github.com/gustavjung01/store
 - Nút **Xem tất cả giá** để mở các bảng giá khác; không tự tạo giá.
 - Admin import `.xlsx` theo sheet và mapping cột; xem trước thay đổi, xác nhận nhập, lịch sử và hoàn tác lượt gần nhất.
 - Dữ liệu riêng tư cần Neon Auth và tài khoản được cấp quyền `viewer/admin`.
+- Nếu tài khoản do quản trị viên tạo chưa có mật khẩu: dùng **Chưa có mật khẩu / Quên mật khẩu?**, nhận email Neon Auth và thiết lập qua liên kết một lần; không lưu mật khẩu vào repo.
 
 ## Lập trình
 
