@@ -29,6 +29,16 @@
 - [ ] UAT 360/390/768/1280/1440 và điện thoại iOS/Android thực tế, kiểm installed standalone, keyboard, scroll, auth, modal, offline, overflow.
 - [ ] Chỉ sau khi UI được nghiệm thu mới tiến hành cải thiện UI/luồng nhập Excel và thuộc tính quy cách.
 
+## P1.5 — Quy cách bán sỉ / ĐVT thùng (09/11/2026)
+- [x] Code ĐVT Thùng điền sẵn cho mã mới Admin tạo, tùy chỉnh từng mã; không đổi mã/tồn cũ.
+- [x] Code JSONB quy cách thùng/lốc, khổ giấy, số trang, GSM, loại kẻ, bìa; chặn dữ liệu mâu thuẫn.
+- [x] Code hiển thị quy cách và quy đổi khi đủ điều kiện; không tự suy đoán.
+- [x] Code Excel danh mục mapping quy cách + ĐVT mặc định cho mã mới; preview/transaction/rollback khôi phục thông số.
+- [ ] CI PR + UAT thiết bị thật, file Excel công ty thực, phân quyền admin/viewer.
+- [ ] Áp migration `0004_product_packaging.sql` vào **Neon dev** sau review, trước khi cập nhật API dev.
+- [ ] Không migration/deploy production trước khi Owner duyệt riêng.
+- Chi tiết: [Quy tắc đơn vị và quy cách bán sỉ](WHOLESALE_UNITS.md).
+
 ## P2 — Import Excel an toàn
 - [x] Đã viết và CI kiểm thử UI/API admin import `.xlsx` danh mục và nhiều loại giá; chọn sheet, mapping, preview. Chưa xác nhận bằng Excel thật.
 - [x] Đã viết validation tồn mã CTY + số lượng; kiểm tra 0/NULL, trùng, âm, mã mới; test unit thành công.
