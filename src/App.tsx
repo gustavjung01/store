@@ -141,7 +141,7 @@ export default function App({ snapshot, catalogStatus, cacheScope, userEmail, is
   }, [])
   function navigate(next: Pane) {
     setPane(next)
-    mainRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+    mainRef.current?.scrollTo({ top: 0, behavior: 'auto' })
     const hash = next === 'catalog' ? '#danh-muc' : next === 'excel' ? '#nhap-excel' : '#tra-cuu'
     window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search + hash)
   }
