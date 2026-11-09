@@ -9,6 +9,7 @@ export interface ProductRecord {
   sku: string | null
   name: string | null
   unit: string | null
+  category?: string | null
   imageUrl: string | null
   quantity: number | null
   inventoryUpdatedAt: string | null
@@ -20,10 +21,11 @@ export interface CatalogSnapshot {
   priceTypes: PriceType[]
   defaultPriceTypeId: string | null
   syncedAt: string | null
+  version?: string | null
 }
 
 export function emptySnapshot(): CatalogSnapshot {
-  return { products: [], priceTypes: [], defaultPriceTypeId: null, syncedAt: null }
+  return { products: [], priceTypes: [], defaultPriceTypeId: null, syncedAt: null, version: null }
 }
 
 export function normalizeCode(value: string): string {

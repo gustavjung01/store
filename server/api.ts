@@ -7,6 +7,7 @@ import { codeKey, parsePageLimit, toProduct } from './catalog'
 import type { DatabaseCatalogRow } from './catalog'
 import { ImportFailure } from './importValidation'
 import { stageImport, commitImport, rollbackImport, importHistory } from './importService'
+import { CatalogError, saveCatalogProduct, recentCatalogEdits } from './catalogService'
 
 type StoreVars = { userId: string; role: 'admin' | 'viewer' }
 const app = new Hono<{ Variables: StoreVars }>()
@@ -25,14 +26,14 @@ const allowedOrigins = new Set(['https://store-nu-opal.vercel.app'])
 // Never allow localhost as a production CORS origin.
 if (process.env.NEON_BRANCH !== 'main') allowedOrigins.add('http://localhost:5173')
 
-const columns = `p.company_code, p.company_code_key, p.sku, p.name, p.unit, p.image_url,
+const columns = `p.company_code, p.company_code_key, p.sku, p.name, p.unit, p.category, p.image_url,
   i.quantity, i.updated_at AS inventory_updated_at,
   COALESCE(jsonb_object_agg(pp.price_type_id, pp.amount) FILTER
     (WHERE pp.price_type_id IS NOT NULL), '{}'::jsonb) AS price_map`
 const joins = `LEFT JOIN public.inventory i ON i.product_id = p.id
   LEFT JOIN public.product_prices pp ON pp.product_id = p.id`
 const group = `GROUP BY p.id, p.company_code, p.company_code_key, p.sku, p.name,
-  p.unit, p.image_url, i.quantity, i.updated_at`
+  p.unit, p.category, p.image_url, i.quantity, i.updated_at`
 
 app.use('*', async (c, next) => {
   const origin = c.req.header('origin')
@@ -43,7 +44,7 @@ app.use('*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff')
 
   if (c.req.method === 'OPTIONS') {
-    c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    c.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
     c.header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
     c.header('Access-Control-Max-Age', '300')
     return c.body(null, 204)
@@ -149,6 +150,38 @@ app.get('/catalog/lookup', async (c) => {
 app.use('/admin/*', async (c, next) => {
   if (c.get('role') !== 'admin') return c.json({ error: 'Chỉ quản trị viên được nhập Excel' }, 403)
   await next()
+})
+
+// Catalog writes and audit are admin-only; no SQL credentials go to the browser.
+app.post('/admin/catalog/products', async (c) => {
+  try {
+    const payload: unknown = await c.req.json()
+    const result = await saveCatalogProduct(pool, c.get('userId'), payload, 'create')
+    return c.json(result, 201)
+  } catch (cause) {
+    const failure = cause instanceof CatalogError ? cause
+      : new CatalogError('Không thể xử lý dữ liệu sản phẩm', 400)
+    return c.json({ error: failure.message }, failure.status as 400 | 404 | 409 | 503)
+  }
+})
+
+app.patch('/admin/catalog/products', async (c) => {
+  try {
+    const payload: unknown = await c.req.json()
+    const result = await saveCatalogProduct(pool, c.get('userId'), payload, 'update',
+      payload && typeof payload === 'object' && 'companyCode' in payload
+        ? String((payload as { companyCode: unknown }).companyCode) : undefined)
+    return c.json(result)
+  } catch (cause) {
+    const failure = cause instanceof CatalogError ? cause
+      : new CatalogError('Không thể xử lý dữ liệu sản phẩm', 400)
+    return c.json({ error: failure.message }, failure.status as 400 | 404 | 409 | 503)
+  }
+})
+
+app.get('/admin/catalog/edits', async (c) => {
+  try { return c.json(await recentCatalogEdits(pool)) }
+  catch { return c.json({ error: 'Không đọc được lịch sử sửa danh mục' }, 503) }
 })
 
 function importResponse(error: unknown, origin?: string): Response {

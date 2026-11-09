@@ -18,6 +18,7 @@ before(async () => {
   for (const migration of [
     'db/migrations/0001_store_catalog.sql',
     'db/migrations/0002_excel_imports.sql',
+    'db/migrations/0003_catalog_edit_audit.sql',
   ]) {
     await pool.query(await readFile(migration, 'utf8'))
   }
@@ -30,7 +31,7 @@ after(async () => {
 async function reset() {
   await pool.query(
     'TRUNCATE public.import_rows,public.inventory,public.product_prices,public.products,' +
-    'public.price_settings,public.price_types,public.import_batches,public.catalog_state ' +
+    'public.price_settings,public.price_types,public.import_batches,public.catalog_edits,public.catalog_state ' +
     'RESTART IDENTITY CASCADE',
   )
   await pool.query('INSERT INTO public.price_settings(id) VALUES(1)')

@@ -4,6 +4,7 @@ export interface DatabaseCatalogRow {
   sku: string | null
   name: string | null
   unit: string | null
+  category: string | null
   image_url: string | null
   quantity: number | null
   inventory_updated_at: Date | string | null
@@ -26,6 +27,7 @@ export function toProduct(row: DatabaseCatalogRow) {
     sku: row.sku,
     name: row.name,
     unit: row.unit,
+    category: row.category,
     imageUrl: row.image_url,
     quantity: row.quantity,
     inventoryUpdatedAt: row.inventory_updated_at ? new Date(row.inventory_updated_at).toISOString() : null,

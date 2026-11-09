@@ -1,4 +1,4 @@
-import type { Pool, PoolClient } from 'pg'
+import type { Pool } from 'pg'
 import { normalizedCode } from './importValidation'
 
 export type ProductInput = {
@@ -11,7 +11,8 @@ export type ProductInput = {
 }
 
 export class CatalogError extends Error {
-  constructor(message: string, readonly status: number = 400) { super(message) }
+  readonly status: number
+  constructor(message: string, status = 400) { super(message); this.status = status }
 }
 
 function inputText(value: unknown, limit: number, field: string, required: boolean): string | null {

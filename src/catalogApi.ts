@@ -68,7 +68,7 @@ export async function downloadCatalog(apiBase: string, jwt: string): Promise<Cat
     types = body.priceTypes
     defaultType = body.defaultPriceTypeId
     syncedAt = body.syncedAt
-    if (!body.nextCursor) return { products, priceTypes: types, defaultPriceTypeId: defaultType, syncedAt }
+    if (!body.nextCursor) return { products, priceTypes: types, defaultPriceTypeId: defaultType, syncedAt, version: initialVersion }
     if (seen.has(body.nextCursor)) throw new Error('Phân trang danh mục lặp')
     seen.add(body.nextCursor)
     cursor = body.nextCursor
