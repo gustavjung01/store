@@ -28,6 +28,14 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
+      # ONE-TIME dev handoff of compiled public source; no env or credentials.
+      - name: Export reviewed DEV Function bundle
+        shell: bash
+        run: |
+          echo 'STORE_CATALOG_DEV_BUNDLE_START'
+          base64 -w0 build/function/index.mjs
+          printf '\nSTORE_CATALOG_DEV_BUNDLE_END\n'
+
 
   postgres-import-integration:
     name: PostgreSQL import transaction tests (isolated)
