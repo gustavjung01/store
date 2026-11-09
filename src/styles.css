@@ -101,3 +101,24 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #2bbc
 @media(max-width:750px){.sidebar{display:none}.topbar{height:62px;padding:0 19px}.top-status{font-size:10px;padding:7px 9px}.main{padding:28px 16px 36px}.hero{margin-bottom:27px}.hero h1{font-size:35px;margin:17px 0 10px}.hero>p{font-size:12px}.columns{gap:17px}.search-panel,.result-card{padding:20px}.right-column{display:grid;grid-template-columns:1fr}.aside-card{padding:20px}.footer{padding:18px 16px;flex-direction:column;gap:5px}}
 @media(max-width:390px){.top-status{max-width:140px}.breadcrumbs{gap:6px;font-size:11px}.product-image{height:76px;width:76px}.product-main{gap:13px}.product-info h2{font-size:14px}.stock-line{gap:7px}.stock-number{font-size:28px}.metric-time{font-size:10px}.search-panel,.result-card{padding:17px}.price-panel{padding:15px 15px 0}.result-version{display:none}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+
+/* Auth shell and session controls */
+.auth-shell{min-height:100vh;background:#edf5f4;display:grid;place-items:center;padding:20px}
+.auth-panel{background:#fff;border:1px solid #d9e7e4;border-radius:20px;box-shadow:0 24px 50px rgba(16,43,65,.08);max-width:410px;width:100%;padding:36px;display:flex;flex-direction:column;gap:10px}
+.auth-mark{height:48px;width:48px;background:#102b41;color:#6ce2c2;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:24px}
+.auth-panel h1{font-family:Manrope,system-ui,sans-serif;font-size:25px;margin:12px 0 0}
+.auth-panel p{color:#718a96;line-height:1.6;font-size:13px}
+.auth-panel label{font-size:12px;font-weight:800;margin-top:10px}
+.auth-panel input{width:100%;border:1px solid #cbdde0;border-radius:10px;min-height:48px;padding:12px;color:#102b41}
+.auth-submit{width:100%;border:0;background:#102b41;color:#fff;border-radius:11px;padding:14px;margin-top:16px;font-weight:800;min-height:48px}
+.auth-submit:disabled{opacity:.5}
+.auth-panel small{font-size:11px;line-height:1.5;color:#8397a0}
+.auth-error,.session-error{background:#fff0ed;color:#a13b39;border:1px solid #efc7c1;padding:13px;border-radius:10px;font-size:12px}
+.session-error{position:fixed;bottom:16px;right:16px;max-width:420px;z-index:20;display:flex;align-items:center;gap:10px;box-shadow:0 10px 28px rgba(0,0,0,.1)}
+.session-error button,.sync-row button{border:1px solid #a9d8ca;border-radius:9px;background:#fff;color:#157c68;font-size:12px;font-weight:800;padding:9px 13px;cursor:pointer}
+.sync-row button:disabled{opacity:.5}
+.top-actions{display:flex;align-items:center;gap:12px}
+.top-logout{background:transparent;color:#176d69;border:1px solid #bddcda;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:800}
+.session-email{font-size:11px;color:#7994a0;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync-row{display:flex;justify-content:space-between;align-items:center;gap:16px;border:1px solid #cfe4df;background:#e9f6f1;border-radius:12px;padding:13px 16px;margin:0 0 20px;color:#397668;font-size:12px;line-height:1.5}
+@media(max-width:750px){.session-email{display:none}.top-actions{gap:6px}.top-logout{padding:7px}.sync-row{align-items:flex-start;flex-direction:column}.auth-panel{padding:26px}}
