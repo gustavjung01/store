@@ -28,3 +28,38 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
+
+  postgres-import-integration:
+    name: PostgreSQL import transaction tests (isolated)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: store_ci
+          POSTGRES_PASSWORD: store_ci_only
+          POSTGRES_DB: store_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U store_ci -d store_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Ephemeral CI container only. The test rejects non-local / non-store_ci URLs.
+      STORE_CI_DATABASE_URL: postgres://store_ci:store_ci_only@127.0.0.1:5432/store_ci
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run migrations and real import/rollback integration tests
+        run: node --experimental-strip-types --test tests/importService.db.test.mjs
