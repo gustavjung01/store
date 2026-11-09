@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { emptySnapshot, findProducts, formatDate, formatVnd, priceFor, stockState } from './domain'
+import { findProducts, normalizeCode, formatDate, formatVnd, priceFor, stockState } from './domain'
+import { findCachedByCompanyCode } from './cache'
 import type { CatalogSnapshot, PriceType, ProductRecord } from './domain'
 
 type IconName = 'search' | 'box' | 'list' | 'upload' | 'settings' | 'image' | 'chevron' | 'clock' | 'check' | 'wifi' | 'arrow'
@@ -108,14 +109,33 @@ function Sidebar() {
   )
 }
 
-export default function App() {
-  // Security gate: until a real authenticated Neon session exists, never read
-  // private IndexedDB records or show a fictitious catalog.
-  const [snapshot] = useState<CatalogSnapshot>(emptySnapshot)
+interface AppProps {
+  snapshot: CatalogSnapshot
+  catalogStatus: string
+  cacheScope: string | null
+  userEmail: string
+  isLoading: boolean
+  onReload: () => void
+  onSignOut: () => void
+}
+
+export default function App({ snapshot, catalogStatus, cacheScope, userEmail, isLoading, onReload, onSignOut }: AppProps) {
   const [query, setQuery] = useState('')
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const results = useMemo(() => findProducts(snapshot.products, query), [snapshot.products, query])
-  const product = results[0] ?? null
+  const [exactResult, setExactResult] = useState<ProductRecord | null>(null)
+  useEffect(() => {
+    let active = true
+    setExactResult(null)
+    if (cacheScope && query.trim()) {
+      void findCachedByCompanyCode(cacheScope, query).then((value) => {
+        if (active) setExactResult(value)
+      }).catch(() => {})
+    }
+    return () => { active = false }
+  }, [cacheScope, query, snapshot])
+  const product = exactResult && normalizeCode(exactResult.companyCode) === normalizeCode(query)
+    ? exactResult : results[0] ?? null
 
   useEffect(() => {
     const online = () => setIsOnline(true)
@@ -134,7 +154,7 @@ export default function App() {
       <div className="workspace">
         <header className="topbar">
           <div className="breadcrumbs"><span>STORE</span><span className="crumb-divider">/</span><strong>Tra cứu sản phẩm</strong></div>
-          <div className="top-status"><span className="status-dot" />{isOnline ? 'Chưa đồng bộ Neon' : 'Đang offline'}</div>
+          <div className="top-actions"><span className="top-status"><span className="status-dot" />{isOnline ? (isLoading ? 'Đang đồng bộ' : 'Theo snapshot Excel') : 'Đang offline'}</span><span className="session-email">{userEmail}</span><button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
         </header>
         <main className="main" id="tra-cuu">
           <div className="hero">
@@ -142,6 +162,7 @@ export default function App() {
             <h1>Tra hàng nhanh.<br /><span>Chốt giá tự tin.</span></h1>
             <p>Một mã hàng, một giá mặc định, số tồn rõ ràng. Cần giá khác thì mở bảng giá tổng.</p>
           </div>
+          <div className="sync-row" role="status"><span>{isLoading ? 'Đang tải dữ liệu STORE...' : (catalogStatus || 'Danh mục chưa có dữ liệu nhập Excel')}</span><button type="button" onClick={onReload} disabled={isLoading || !isOnline}>Đồng bộ lại</button></div>
           <div className="columns">
             <div className="left-column">
               <section className="search-panel" aria-labelledby="search-title">
@@ -154,7 +175,7 @@ export default function App() {
                 <div className="search-tags"><span>Tìm chính xác theo mã</span><span>Gợi ý theo tên</span><span>Hỗ trợ số 0 đầu</span></div>
               </section>
               {query.trim() !== '' && !product && (
-                <div className="search-warning" role="status"><Icon name="wifi" size={17} />Dữ liệu danh mục chưa được kết nối; chưa thể xác nhận mã này có tồn tại hay không.</div>
+                <div className="search-warning" role="status"><Icon name="wifi" size={17} />{snapshot.products.length === 0 ? 'Chưa có danh mục được nhập Excel.' : 'Không tìm thấy sản phẩm theo từ khóa này.'}</div>
               )}
               <ProductPreview product={product} snapshot={snapshot} />
             </div>
