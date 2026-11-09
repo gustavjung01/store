@@ -26,14 +26,14 @@ const allowedOrigins = new Set(['https://store-nu-opal.vercel.app'])
 // Never allow localhost as a production CORS origin.
 if (process.env.NEON_BRANCH !== 'main') allowedOrigins.add('http://localhost:5173')
 
-const columns = `p.company_code, p.company_code_key, p.sku, p.name, p.unit, p.category, p.image_url,
+const columns = `p.company_code, p.company_code_key, p.sku, p.name, p.unit, p.category, p.product_spec, p.image_url,
   i.quantity, i.updated_at AS inventory_updated_at,
   COALESCE(jsonb_object_agg(pp.price_type_id, pp.amount) FILTER
     (WHERE pp.price_type_id IS NOT NULL), '{}'::jsonb) AS price_map`
 const joins = `LEFT JOIN public.inventory i ON i.product_id = p.id
   LEFT JOIN public.product_prices pp ON pp.product_id = p.id`
 const group = `GROUP BY p.id, p.company_code, p.company_code_key, p.sku, p.name,
-  p.unit, p.category, p.image_url, i.quantity, i.updated_at`
+  p.unit, p.category, p.product_spec, p.image_url, i.quantity, i.updated_at`
 
 app.use('*', async (c, next) => {
   const origin = c.req.header('origin')
