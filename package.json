@@ -18,7 +18,8 @@
     "@neon/functions": "^0.11.0",
     "hono": "^4.13.17",
     "jose": "^6.0.0",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "read-excel-file": "^9.3.12"
   },
   "devDependencies": {
     "@types/react": "19.3.0",
