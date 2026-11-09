@@ -1,24 +1,45 @@
-# STORE — Tra cứu tồn kho bán hàng
+# STORE — Tra giá và tồn kho khi đi thị trường
 
 Repository: https://github.com/gustavjung01/store
 
-**Trạng thái:** Bộ tài liệu khởi tạo cho dự án, **chưa có phần mềm**. Tài liệu khởi tạo ngày 09/11/2026.
+**Trạng thái:** Đang xây dựng PWA. Bộ khung frontend đã được mở qua PR, **chưa có Neon/Auth/Excel thực tế và chưa deploy production**.
 
 ## Mục tiêu
 
-Ứng dụng tra mã CTY / SKU / tên hàng, xem tồn và thời điểm cập nhật nhanh trên điện thoại. Tồn được nhập thủ công từ Excel công ty và có preview, đối soát, audit, hoàn tác.
+Mở ứng dụng trên điện thoại, nhập **mã CTY / SKU / tên**, xem **tên hàng + ảnh + giá mặc định + số tồn**. Khi cần, mở **Xem tất cả giá**. Tồn là snapshot theo lần nhập Excel gần nhất, **không phải realtime**.
+
+- Danh mục và nhiều loại giá import từ Excel; loại giá mặc định do admin cấu hình.
+- Tồn nhập riêng bằng Excel có hai cột tối thiểu mã CTY + số lượng.
+- Neon PostgreSQL là nguồn dữ liệu gốc. IndexedDB tăng tốc tìm kiếm sau đăng nhập/đồng bộ; cache không phải dữ liệu gốc.
+- Đọc ảnh R2 được Owner cho phép theo mã; không dùng chung DB/secrets FBMN.
+
+## Chạy bộ khung tại máy phát triển
+
+Yêu cầu Node.js **22.12+** và npm.
+
+```bash
+npm install
+npm run dev
+npm run typecheck
+npm test
+npm run build
+```
+
+Chưa có dữ liệu công ty nên UI cố ý hiển thị placeholder và trạng thái **chưa đồng bộ Neon**, không dựng dữ liệu mẫu giả.
+
+**Bảo mật:** `src/cache.ts` chuẩn bị IndexedDB nhưng giao diện chưa đọc/ghi cache cho tới khi có đăng nhập và phân quyền. Service worker chỉ cache bộ vỏ ứng dụng tĩnh.
 
 ## Tài liệu
 
-- [`AGENTS.md`](AGENTS.md): Quy tắc bắt buộc cho AI, Codex và developer.
-- [`CHATGPT_PROJECT_INSTRUCTIONS.md`](CHATGPT_PROJECT_INSTRUCTIONS.md): Nội dung dùng khi tạo một ChatGPT Project riêng.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): Các giai đoạn xây dựng / tiêu chí nghiệm thu.
-- [`docs/EXCEL_IMPORT_SPEC.md`](docs/EXCEL_IMPORT_SPEC.md): Đặc tả dữ liệu và xử lý nhập Excel.
+- [AGENTS.md](AGENTS.md): quy tắc bắt buộc.
+- [CHATGPT_PROJECT_INSTRUCTIONS.md](CHATGPT_PROJECT_INSTRUCTIONS.md): chỉ dẫn project.
+- [docs/ROADMAP.md](docs/ROADMAP.md): giai đoạn và nghiệm thu.
+- [docs/EXCEL_IMPORT_SPEC.md](docs/EXCEL_IMPORT_SPEC.md): import tồn kho.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): lựa chọn PWA/Neon/IndexedDB/giá.
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): workflow deploy comment (được đề xuất ở PR riêng).
 
-## Bắt đầu
+## Deploy
 
-1. Đọc `AGENTS.md`, `docs/ROADMAP.md` và `docs/EXCEL_IMPORT_SPEC.md` trước khi thay đổi.
-2. Tạo ChatGPT Project mới và dán nội dung từ `CHATGPT_PROJECT_INSTRUCTIONS.md` vào Project Instructions.
-3. Nhận file Excel mẫu đã ẩn dữ liệu nhạy cảm để xác nhận đúng cột mã CTY và số tồn.
-4. Chọn stack và kiến trúc DB riêng cho STORE; thống nhất wireframe tra cứu / nhập file.
-5. Phát triển qua branch/PR theo các chặng trong roadmap; không tự deploy production khi chưa được phê duyệt.
+Vercel project STORE thuộc `gustavjung01`, **không kết nối Git Integration**, nên push/merge GitHub không tự deploy. GitHub CI PR chỉ chạy kiểm thử.
+
+Workflow deploy qua comment do Owner duyệt ở PR #1; cần cấu hình token riêng qua GitHub Environments, không gửi bí mật qua chat. **Không deploy hay migrate DB production khi chưa được Owner phê duyệt.**
