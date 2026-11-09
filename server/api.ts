@@ -142,12 +142,16 @@ app.use('/admin/*', async (c, next) => {
   await next()
 })
 
-function importResponse(error: unknown): Response {
+function importResponse(error: unknown, origin?: string): Response {
   const failure = error instanceof ImportFailure ? error : new ImportFailure('Không xử lý được yêu cầu nhập Excel', 503)
-  return new Response(JSON.stringify({ error: failure.message }), {
-    status: failure.status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+  const headers = new Headers({
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Vary': 'Origin',
   })
+  // Preserve CORS on all import errors, but never reflect unknown origins.
+  if (origin && allowedOrigins.has(origin)) headers.set('Access-Control-Allow-Origin', origin)
+  return new Response(JSON.stringify({ error: failure.message }), { status: failure.status, headers })
 }
 
 app.post('/admin/import/preview', async (c) => {
@@ -160,7 +164,7 @@ app.post('/admin/import/preview', async (c) => {
     try { data = JSON.parse(body) } catch { throw new ImportFailure('JSON không hợp lệ', 400) }
     const result = await stageImport(pool, c.get('userId'), data)
     return c.json(result, result.valid ? 200 : 422)
-  } catch (error) { return importResponse(error) }
+  } catch (error) { return importResponse(error, c.req.header('origin')) }
 })
 
 app.post('/admin/import/commit', async (c) => {
@@ -169,7 +173,7 @@ app.post('/admin/import/commit', async (c) => {
     const id = input && typeof input === 'object' && 'batchId' in input ? (input as { batchId:unknown }).batchId : null
     if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new ImportFailure('Mã lượt nhập không hợp lệ',400)
     return c.json(await commitImport(pool,c.get('userId'),id))
-  } catch (error) { return importResponse(error) }
+  } catch (error) { return importResponse(error, c.req.header('origin')) }
 })
 
 app.post('/admin/import/rollback', async (c) => {
@@ -178,7 +182,7 @@ app.post('/admin/import/rollback', async (c) => {
     const id = input && typeof input === 'object' && 'batchId' in input ? (input as { batchId:unknown }).batchId : null
     if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new ImportFailure('Mã lượt nhập không hợp lệ',400)
     return c.json(await rollbackImport(pool,c.get('userId'),id))
-  } catch (error) { return importResponse(error) }
+  } catch (error) { return importResponse(error, c.req.header('origin')) }
 })
 
 app.get('/admin/imports', async (c) => {
