@@ -21,7 +21,11 @@ export type ImportPayload = {
 export type ImportIssue = { rowNumber: number; message: string }
 
 export class ImportFailure extends Error {
-  constructor(message: string, readonly status = 400) { super(message) }
+  readonly status: number
+  constructor(message: string, status = 400) {
+    super(message)
+    this.status = status
+  }
 }
 
 export function normalizedCode(raw: string): string {
