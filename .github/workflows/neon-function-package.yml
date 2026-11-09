@@ -1,0 +1,60 @@
+name: Package STORE Neon Function (owner only)
+
+# Build a public, secret-free function archive from reviewed main.
+# No Neon token or connection string is used by this workflow.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: store-neon-bundle
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: >-
+      github.event.issue.pull_request != null &&
+      github.event.comment.user.id == 276658950 &&
+      github.event.comment.user.login == 'gustavjung01' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/package storeapi'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout reviewed main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Test and build function
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run bundle:function
+          test -s build/function/index.mjs
+          RELEASE_SHA="$(git rev-parse HEAD)"
+          echo "RELEASE_SHA=$RELEASE_SHA" >> "$GITHUB_ENV"
+          zip -j -9 "$RUNNER_TEMP/storeapi.zip" build/function/index.mjs
+          test -s "$RUNNER_TEMP/storeapi.zip"
+          test "$(wc -c < "$RUNNER_TEMP/storeapi.zip")" -lt 8000000
+      - name: Publish standalone bundle to separate artifact branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch --orphan neon-function-bundle
+          git rm -rf -q . || true
+          cp "$RUNNER_TEMP/storeapi.zip" storeapi.zip
+          git add -f storeapi.zip
+          git -c user.name='STORE release bot' -c user.email='noreply@github.com' commit -m "build: STORE Neon function from ${RELEASE_SHA}"
+          git push origin HEAD:refs/heads/neon-function-bundle
+          echo "Function archive for ${RELEASE_SHA}: branch neon-function-bundle" >> "$GITHUB_STEP_SUMMARY"
