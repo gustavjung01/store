@@ -9,6 +9,7 @@ Repository duy nhất: https://github.com/gustavjung01/store
 - Một ô tìm kiếm mã CTY, SKU, tên sản phẩm.
 - Hiện tên, ĐVT, **giá mặc định**, tồn kho và thời gian nhập Excel.
 - Nút **Xem tất cả giá** để mở các bảng giá khác; không tự tạo giá.
+- Admin import `.xlsx` theo sheet và mapping cột; xem trước thay đổi, xác nhận nhập, lịch sử và hoàn tác lượt gần nhất.
 - Dữ liệu riêng tư cần Neon Auth và tài khoản được cấp quyền `viewer/admin`.
 
 ## Lập trình
@@ -32,6 +33,8 @@ Hiện Neon Auth và schema đã được chuẩn bị trên **nhánh Neon phát
 - Vercel project `store` của `gustavjung01`: production triển khai theo GitHub comment `/deploy production` của Owner, không có auto-deploy.
 - Neon project `patient-feather-65846936`, nhánh `dev-store-auth-catalog`: Auth bật, migration mẫu `db/migrations/0001_store_catalog.sql` đã kiểm thử. Neon `main` chưa bị migrate.
 - Backend nguồn tại `server/api.ts` + config `neon.ts`. JWT và quyền được kiểm ở server, không tin client.
+- Source import tại `server/importValidation.ts`, `server/importService.ts`, `src/ExcelImport.tsx`, migration `0002_excel_imports.sql`. Chưa có dữ liệu công ty để import thử.
+- Tài liệu [quy trình Excel](docs/IMPORT_IMPLEMENTATION.md), giới hạn 3000 dòng mỗi lần, file tối đa 2 MB.
 - IndexedDB chỉ đọc sau khi user có session và được API kiểm quyền; xóa khi logout.
 
 Tài liệu: [AGENTS.md](AGENTS.md), [ROADMAP](docs/ROADMAP.md), [Excel](docs/EXCEL_IMPORT_SPEC.md), [Kiến trúc](docs/ARCHITECTURE.md), [Neon API/Auth](docs/NEON_AUTH_API.md), [Deploy](docs/DEPLOYMENT.md).
