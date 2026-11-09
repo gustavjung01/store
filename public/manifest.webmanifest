@@ -7,8 +7,10 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f4f7f8",
-  "theme_color": "#102b41",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#f5f7fb",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "/icon.svg",
