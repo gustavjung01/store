@@ -46,6 +46,11 @@ export default function CatalogManager({
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    if (!message) return
+    const dismiss = window.setTimeout(() => setMessage(''), 4800)
+    return () => window.clearTimeout(dismiss)
+  }, [message])
   const [edits, setEdits] = useState<EditEvent[]>([])
   const [historyError, setHistoryError] = useState('')
 
@@ -221,10 +226,10 @@ export default function CatalogManager({
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="catalog-dialog-title" className="catalog-dialog">
         <form className="catalog-form catalog-dialog-form" onSubmit={event => { void submit(event) }}>
           <div className="catalog-form-heading">
-            <div><h2 id="catalog-dialog-title">{editor.mode === 'create' ? 'Tạo sản phẩm mới' : 'Hoàn thiện / sửa sản phẩm'}</h2>
-              <p>{editor.mode === 'create' ? 'Nhập mã thực tế và tên hàng, không cần khai tồn lúc này.' : 'Mã CTY không được thay đổi để bảo toàn giá và lịch sử tồn.'}</p></div>
+            <div><h2 id="catalog-dialog-title">{editor.mode === 'create' ? 'Tạo sản phẩm mới' : 'Hoàn thiện / sửa sản phẩm'}</h2></div>
             <button type="button" className="catalog-secondary" onClick={closeEditor} disabled={saving} aria-label="Đóng cửa sổ chỉnh sửa">Đóng</button>
           </div>
+          <p className="catalog-dialog-hint">{editor.mode === 'create' ? 'Nhập mã thực tế và tên hàng, không cần khai tồn lúc này.' : 'Mã CTY không được thay đổi để bảo toàn giá và lịch sử tồn.'}</p>
           <div className="catalog-form-grid">
             <label><span>Mã CTY <b>*</b></span><input type="text" required maxLength={120} value={editor.companyCode}
               onChange={e => patch({ companyCode: e.target.value })} disabled={editor.mode === 'update' || saving}
@@ -248,7 +253,7 @@ export default function CatalogManager({
         </div>
       )}
 
-      {message && <p className="catalog-success" role="status">{message}</p>}
+      {message && <div className="store-toast" role="status"><span>{message}</span><button type="button" aria-label="Đóng thông báo" onClick={() => setMessage('')}>×</button></div>}
       <div className="catalog-list">
         <div className="catalog-list-head">
           <div><h2>Danh sách sản phẩm</h2><p>Tra theo mã CTY, SKU hoặc tên hàng.</p></div>
