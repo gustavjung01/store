@@ -280,7 +280,7 @@ export default function ExcelImport({
         </div>
         <p className="excel-notice">{preview.summary.absentCodesUnaffected} mã trong STORE không có trong file sẽ được giữ nguyên. Bản xem trước hết hạn sau 20 phút.</p>
         {(preview.summary.missingUnitCount ?? 0) > 0 && <p className="excel-unit-warning" role="status">{preview.summary.missingUnitCount} mã trong lượt nhập chưa xác nhận ĐVT. Không tự hiểu số tồn là thùng.</p>}
-        {(preview.summary.changedUnitWithStock ?? 0) > 0 && <p className="excel-unit-warning" role="alert">Cảnh báo: {preview.summary.changedUnitWithStock} mã đang có số tồn sẽ bị đổi ĐVT mà KHÔNG quy đổi số lượng. Cần đối chiếu trước khi xác nhận.</p>
+        {(preview.summary.changedUnitWithStock ?? 0) > 0 && <p className="excel-unit-warning" role="alert">Cảnh báo: {preview.summary.changedUnitWithStock} mã đang có số tồn sẽ bị đổi ĐVT mà KHÔNG quy đổi số lượng. Cần đối chiếu trước khi xác nhận.</p>}
         <div className="excel-table-wrap"><table><thead><tr><th>Dòng</th><th>Mã CTY</th><th>Trạng thái</th><th>ĐVT trước → sau</th><th>SP/thùng trước → sau</th><th>Trước</th><th>Sau</th></tr></thead><tbody>
           {preview.summary.sample.map(row=><tr key={row.rowNumber}><td>{row.rowNumber}</td><td><code>{row.companyCode}</code></td><td>{row.action==='new'?'Mã mới':row.action==='changed'?'Thay đổi':'Giữ nguyên'}</td><td>{row.previousUnit || '—'} → {row.nextUnit || 'Chưa xác nhận'}</td><td>{row.previousCarton ?? '—'} → {row.nextCarton ?? '—'}</td><td>{kind==='inventory' ? row.previousQuantity ?? 'Chưa có' : JSON.stringify(row.previousPrices)}</td><td>{kind==='inventory' ? row.nextQuantity ?? 'Chưa có' : JSON.stringify(row.nextPrices)}</td></tr>)}
         </tbody></table></div>
