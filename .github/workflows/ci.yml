@@ -28,16 +28,6 @@ jobs:
         run: npm run build
       - name: Bundle Neon Function
         run: npm run bundle:function
-      # One-time smoke check against Neon DEV only. No user credentials.
-      - name: Check Neon dev API 200 health and 401 without JWT
-        shell: bash
-        run: |
-          set -euo pipefail
-          base='https://br-lucky-violet-aznxmc4n-storeapi.compute.c-3.ap-southeast-1.aws.neon.tech'
-          health="$(curl -sS --retry 2 --max-time 30 -o /dev/null -w '%{http_code}' "$base/health")"
-          me="$(curl -sS --retry 2 --max-time 30 -o /dev/null -w '%{http_code}' "$base/me")"
-          echo "health=$health me=$me"
-          [[ "$health" == '200' ]] && [[ "$me" == '401' ]]
 
   postgres-import-integration:
     name: PostgreSQL import transaction tests (isolated)
