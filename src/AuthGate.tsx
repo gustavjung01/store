@@ -11,6 +11,7 @@ type SignedIn = { id: string; email: string }
 export default function AuthGate() {
   const [signedIn, setSignedIn] = useState<SignedIn | null>(null)
   const [scope, setScope] = useState<string | null>(null)
+  const [role, setRole] = useState<'admin' | 'viewer' | null>(null)
   const [snapshot, setSnapshot] = useState<CatalogSnapshot>(emptySnapshot)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -28,7 +29,8 @@ export default function AuthGate() {
       const tokenResult = await authClient.token()
       const token = tokenResult.data?.token
       if (!token) throw new Error('Không lấy được quyền truy cập dữ liệu STORE')
-      await verifyStoreMembership(storeApiUrl, token)
+      const membership = await verifyStoreMembership(storeApiUrl, token)
+      setRole(membership.role)
       const cacheId = await authenticatedCacheScope(user.id)
       setScope(cacheId)
 
@@ -101,6 +103,7 @@ export default function AuthGate() {
       if (scope) await clearPrivateCache(scope)
       await authClient.signOut()
       setSignedIn(null)
+      setRole(null)
       setScope(null)
       setSnapshot(emptySnapshot())
       setStatus('')
@@ -108,6 +111,15 @@ export default function AuthGate() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không đăng xuất được')
     }
+  }
+
+  async function adminToken(): Promise<string> {
+    if (!authClient || !storeApiUrl || role !== 'admin') throw new Error('Không có quyền quản trị STORE')
+    const response = await authClient.token()
+    if (!response.data?.token) throw new Error('Phiên đăng nhập đã hết hạn')
+    const membership = await verifyStoreMembership(storeApiUrl,response.data.token)
+    if (membership.role !== 'admin') throw new Error('Tài khoản không còn quyền quản trị')
+    return response.data.token
   }
 
   if (checking) return <div className="auth-shell"><div className="auth-panel"><h1>STORE</h1><p>Đang xác minh phiên đăng nhập...</p></div></div>
@@ -136,7 +148,7 @@ export default function AuthGate() {
 
   return (
     <>
-      <App snapshot={snapshot} catalogStatus={status} cacheScope={scope} userEmail={signedIn.email} isLoading={loading}
+      <App snapshot={snapshot} catalogStatus={status} cacheScope={scope} userEmail={signedIn.email} isLoading={loading} role={role} apiBase={storeApiUrl} getAdminToken={adminToken}
         onReload={() => { void load(signedIn) }} onSignOut={() => { void signOut() }} />
       {error && <div className="session-error" role="alert">{error}<button type="button" onClick={() => { void load(signedIn) }}>Thử lại</button></div>}
     </>
