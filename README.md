@@ -4,6 +4,13 @@ Repository duy nhất: https://github.com/gustavjung01/store
 
 Ứng dụng **PWA React/TypeScript**, dữ liệu gốc tại Neon riêng STORE, bộ nhớ tra cứu tại IndexedDB. Mã CTY được nhập dạng text, số tồn chỉ là **snapshot theo Excel**, không phải realtime.
 
+## Giao diện PWA
+
+- Màn tra cứu dùng khung ứng dụng `100dvh`: header và thanh điều hướng mobile cố định trong shell, chỉ nội dung cuộn; hỗ trợ safe-area và bàn phím.
+- Các nút, form, màu trạng thái dùng [STORE UI contract](docs/STORE_UI_CONTRACT.md), tham khảo nguyên tắc hình học FBMN nhưng giữ thương hiệu và dữ liệu riêng.
+- **Chỉ khi cài PWA vào màn hình chính** mới có chế độ standalone theo hỗ trợ của iOS/Android; mở trong tab trình duyệt không thể tự ẩn address bar.
+- Giai đoạn này chỉ chỉnh UI; logic nhập Excel và Neon không thay đổi.
+
 ## Người dùng
 
 - Một ô tìm kiếm mã CTY, SKU, tên sản phẩm.
