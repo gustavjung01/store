@@ -62,6 +62,16 @@ jobs:
           npm test
           npm run build
 
+      - name: Check approved Neon production API before release
+        shell: bash
+        run: |
+          set -euo pipefail
+          api='https://br-floral-hall-az8o3rfh-storeapi.compute.c-3.ap-southeast-1.aws.neon.tech'
+          health="$(curl --fail --silent --show-error --retry 3 --max-time 25 "$api/health")"
+          [[ "$health" == *'"status":"ready"'* ]] || { echo "::error::STORE production API health is not ready"; exit 1; }
+          status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$api/me")"
+          [[ "$status" == '401' ]] || { echo "::error::STORE production API did not reject anonymous caller (HTTP $status)"; exit 1; }
+
       - name: Install pinned Vercel CLI
         run: npm install --global vercel@65.12.1
 

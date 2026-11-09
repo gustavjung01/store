@@ -55,8 +55,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git switch --orphan neon-function-bundle
-          git rm -rf -q . || true
+          if git ls-remote --exit-code --heads origin neon-function-bundle >/dev/null 2>&1; then
+            git fetch origin neon-function-bundle
+            git switch -c neon-function-bundle FETCH_HEAD
+          else
+            git switch --orphan neon-function-bundle
+            git rm -rf -q . || true
+          fi
           cp "$RUNNER_TEMP/storeapi.zip" storeapi.zip
           git add -f storeapi.zip
           git -c user.name='STORE release bot' -c user.email='noreply@github.com' commit -m "build: STORE Neon function from ${RELEASE_SHA}"
