@@ -41,6 +41,22 @@ type Batch = {
   row_count: number
 }
 
+function batchStatusLabel(status: string): string {
+  switch (status) {
+    case 'applied': return 'Đã nhập'
+    case 'undone': return 'Đã hoàn tác'
+    case 'rolled_back': return 'Đã hoàn tác'
+    case 'failed': return 'Thất bại'
+    case 'pending': return 'Chờ xác nhận'
+    default: return 'Đang xử lý'
+  }
+}
+
+function displayPrices(prices: Record<string, string | number>): string {
+  const entries = Object.entries(prices)
+  return entries.length ? entries.map(([label, amount]) => label + ': ' + amount).join(' · ') : '—'
+}
+
 const initialMapping: ColumnSelection = {
   code:-1,quantity:-1,name:-1,sku:-1,unit:-1,specColumns:{},defaultUnitForNew:'Thùng',prices:[],defaultPriceColumn:-1,
 }
@@ -172,12 +188,12 @@ export default function ExcelImport({
     setBusy(true);setError('');setMessage('')
     try {
       const result = await request('admin/import/commit',{batchId:preview.batchId}) as {success?:boolean,count?:number}
-      if (!result.success) throw new Error('DB chưa xác nhận import')
-      setMessage('Đã nhập thành công ' + result.count + ' dòng. Số tồn là snapshot Excel, không phải realtime.')
+      if (!result.success) throw new Error('Chưa xác nhận được lượt nhập')
+      setMessage('Đã nhập ' + result.count + ' dòng.')
       setPreview(null)
       await loadHistory()
       onSaved()
-    } catch(cause) {setError(cause instanceof Error ? cause.message : 'Không thể xác nhận import')}
+    } catch(cause) {setError(cause instanceof Error ? cause.message : 'Không thể xác nhận lượt nhập')}
     finally {setBusy(false)}
   }
 
@@ -186,12 +202,12 @@ export default function ExcelImport({
     setBusy(true);setError('');setMessage('')
     try {
       const result = await request('admin/import/rollback',{batchId:id}) as {success?:boolean,revertedRows?:number}
-      if (!result.success) throw new Error('DB chưa xác nhận hoàn tác')
+      if (!result.success) throw new Error('Chưa hoàn tác được')
       setMessage('Đã hoàn tác ' + result.revertedRows + ' dòng.')
       setPreview(null)
       await loadHistory()
       onSaved()
-    } catch(cause) {setError(cause instanceof Error ? cause.message : 'Hoàn tác thất bại')}
+    } catch(cause) {setError(cause instanceof Error ? cause.message : 'Không thể hoàn tác')}
     finally {setBusy(false)}
   }
 
@@ -212,7 +228,7 @@ export default function ExcelImport({
 
   return (
     <section className="excel-page" aria-label="Nhập Excel STORE">
-      <div className="excel-heading"><div><p className="eyebrow">CHỈ QUẢN TRỊ VIÊN</p><h2>Nhập Excel an toàn</h2><p>Chọn sheet và mapping, xem trước thay đổi, sau đó mới xác nhận ghi dữ liệu.</p></div><button onClick={onClose} type="button">Quay lại tra cứu</button></div>
+      <div className="excel-heading"><h2>Nhập Excel</h2><button onClick={onClose} type="button">Về tra cứu</button></div>
       <div className="excel-card">
         <div className="excel-kinds">
           <button className={kind === 'inventory' ? 'active' : ''} type="button" onClick={()=>changeKind('inventory')}>Nhập tồn kho</button>
@@ -221,7 +237,7 @@ export default function ExcelImport({
         <label className="excel-file"><span>Chọn file .xlsx (tối đa 2 MB)</span><input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={e=>{void chooseFile(e)}} /></label>
         {sheet && <>
           <div className="excel-grid">
-            <label className="excel-field"><span>Sheet</span><select value={sheetIndex} onChange={e=>{setSheetIndex(Number(e.target.value));setHeaderRow(1);resetForNewFile()}}>{sheets.map((s,i)=><option key={s.sheet} value={i}>{s.sheet}</option>)}</select></label>
+            <label className="excel-field"><span>Trang tính</span><select value={sheetIndex} onChange={e=>{setSheetIndex(Number(e.target.value));setHeaderRow(1);resetForNewFile()}}>{sheets.map((s,i)=><option key={s.sheet} value={i}>{s.sheet}</option>)}</select></label>
             <label className="excel-field"><span>Dòng tiêu đề</span><select value={headerRow} onChange={e=>{setHeaderRow(Number(e.target.value));resetForNewFile()}}>{Array.from({length:Math.min(20,Math.max(0,sheet.data.length-1))},(_,i)=><option value={i+1} key={i+1}>Dòng {i+1}</option>)}</select></label>
           </div>
           <div className="excel-grid">
@@ -263,8 +279,8 @@ export default function ExcelImport({
             </div>
             <label className="excel-field"><span>Loại giá hiển thị mặc định cho nhân viên</span><select value={mapping.defaultPriceColumn} onChange={e=>changeMapping({defaultPriceColumn:Number(e.target.value)})}><option value={-1}>Giữ mặc định hiện tại</option>{headers.filter(h=>mapping.prices.includes(h.value)).map(h=><option key={h.value} value={h.value}>{h.label}</option>)}</select></label>
           </>}
-          <p className="excel-notice">Mã CTY cần là ô Text để giữ số 0 đầu. Import tồn: số lượng theo ĐVT đã xác nhận của từng mã; mã mới chưa có ĐVT, không tự coi là thùng. Import danh mục: chỉ mã mới dùng ĐVT mặc định đã chọn; mã cũ không bị đổi ĐVT nếu bỏ qua cột. Các mã vắng file giữ nguyên số tồn.</p>
-          <button className="excel-primary" type="button" disabled={busy} onClick={()=>{void previewImport()}}>{busy ? 'Đang xử lý...' : 'Xem trước thay đổi trên Neon'}</button>
+          <details className="excel-guidance"><summary>Lưu ý khi nhập</summary><p>Mã CTY phải là dạng văn bản để giữ số 0 đầu. Số tồn theo đơn vị tính của từng mã; mã mới chưa rõ đơn vị tính không tự coi là thùng. Đơn vị tính mặc định chỉ áp dụng cho mã mới. Mã không có trong file sẽ giữ nguyên số tồn.</p></details>
+          <button className="excel-primary" type="button" disabled={busy} onClick={()=>{void previewImport()}}>{busy ? 'Đang xử lý...' : 'Xem trước thay đổi'}</button>
         </>}
         {issues.length > 0 && <div className="excel-issues" role="alert"><strong>Chưa thể xác nhận: {issues.length} lỗi được phát hiện</strong>{issues.slice(0,30).map((i,index)=><p key={index}>Dòng {i.rowNumber || 'cấu hình'}: {i.message}</p>)}</div>}
         {error && <div className="excel-issues" role="alert">{error}</div>}
@@ -282,15 +298,15 @@ export default function ExcelImport({
         {(preview.summary.missingUnitCount ?? 0) > 0 && <p className="excel-unit-warning" role="status">{preview.summary.missingUnitCount} mã trong lượt nhập chưa xác nhận ĐVT. Không tự hiểu số tồn là thùng.</p>}
         {(preview.summary.changedUnitWithStock ?? 0) > 0 && <p className="excel-unit-warning" role="alert">Cảnh báo: {preview.summary.changedUnitWithStock} mã đang có số tồn sẽ bị đổi ĐVT mà KHÔNG quy đổi số lượng. Cần đối chiếu trước khi xác nhận.</p>}
         <div className="excel-table-wrap"><table><thead><tr><th>Dòng</th><th>Mã CTY</th><th>Trạng thái</th><th>ĐVT trước → sau</th><th>SP/thùng trước → sau</th><th>Trước</th><th>Sau</th></tr></thead><tbody>
-          {preview.summary.sample.map(row=><tr key={row.rowNumber}><td>{row.rowNumber}</td><td><code>{row.companyCode}</code></td><td>{row.action==='new'?'Mã mới':row.action==='changed'?'Thay đổi':'Giữ nguyên'}</td><td>{row.previousUnit || '—'} → {row.nextUnit || 'Chưa xác nhận'}</td><td>{row.previousCarton ?? '—'} → {row.nextCarton ?? '—'}</td><td>{kind==='inventory' ? row.previousQuantity ?? 'Chưa có' : JSON.stringify(row.previousPrices)}</td><td>{kind==='inventory' ? row.nextQuantity ?? 'Chưa có' : JSON.stringify(row.nextPrices)}</td></tr>)}
+          {preview.summary.sample.map(row=><tr key={row.rowNumber}><td>{row.rowNumber}</td><td><code>{row.companyCode}</code></td><td>{row.action==='new'?'Mã mới':row.action==='changed'?'Thay đổi':'Giữ nguyên'}</td><td>{row.previousUnit || '—'} → {row.nextUnit || 'Chưa xác nhận'}</td><td>{row.previousCarton ?? '—'} → {row.nextCarton ?? '—'}</td><td>{kind==='inventory' ? row.previousQuantity ?? 'Chưa có' : displayPrices(row.previousPrices)}</td><td>{kind==='inventory' ? row.nextQuantity ?? 'Chưa có' : displayPrices(row.nextPrices)}</td></tr>)}
         </tbody></table></div>
-        <p className="excel-notice">Hiển thị tối đa 80 dòng đầu; toàn bộ {preview.summary.total} dòng được kiểm tra và ghi trong transaction.</p>
+        <p className="excel-notice">Hiển thị tối đa 80 dòng; toàn bộ {preview.summary.total} dòng sẽ được kiểm tra trước khi nhập.</p>
         <button type="button" className="excel-primary" disabled={busy} onClick={()=>{void commit()}}>XÁC NHẬN CẬP NHẬT STORE</button>
       </div>}
       <div className="excel-card">
         <h3>Lịch sử nhập gần đây</h3><p className="excel-notice">Chỉ được hoàn tác lượt nhập mới nhất, để tránh làm sai các thay đổi về sau.</p>
         {batches.length===0?<p>Chưa có lượt nhập nào.</p>:<div className="excel-history">
-          {batches.map(batch=><div key={batch.id}><div><strong>{batch.filename}</strong><small>{batch.kind==='inventory'?'Tồn':'Danh mục/giá'} · {batch.row_count} dòng · {batch.status} · {new Date(batch.created_at).toLocaleString('vi-VN')}</small></div>{batch.id === latestAppliedId && <button disabled={busy} type="button" onClick={()=>{void rollback(batch.id)}}>Hoàn tác</button>}</div>)}
+          {batches.map(batch=><div key={batch.id}><div><strong>{batch.filename}</strong><small>{batch.kind==='inventory'?'Tồn':'Danh mục/giá'} · {batch.row_count} dòng · {batchStatusLabel(batch.status)} · {new Date(batch.created_at).toLocaleString('vi-VN')}</small></div>{batch.id === latestAppliedId && <button disabled={busy} type="button" onClick={()=>{void rollback(batch.id)}}>Hoàn tác</button>}</div>)}
         </div>}
       </div>
     </section>
