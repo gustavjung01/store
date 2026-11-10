@@ -168,7 +168,7 @@ export default function AuthGate() {
       setRole(null)
       setScope(null)
       setSnapshot(emptySnapshot())
-        setPassword('')
+      setPassword('')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không đăng xuất được')
     }
