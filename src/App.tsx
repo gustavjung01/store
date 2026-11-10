@@ -7,7 +7,7 @@ import ExcelImport from './ExcelImport'
 import CatalogManager from './CatalogManager'
 import type { CatalogSnapshot, PriceType, ProductRecord } from './domain'
 
-type IconName = 'search' | 'box' | 'list' | 'upload' | 'settings' | 'image' | 'chevron' | 'clock' | 'check' | 'wifi' | 'arrow' | 'sun' | 'moon'
+type IconName = 'search' | 'box' | 'list' | 'upload' | 'settings' | 'image' | 'chevron' | 'clock' | 'check' | 'wifi' | 'arrow' | 'sun' | 'moon' | 'refresh'
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const drawing: Record<IconName, ReactNode> = {
@@ -24,6 +24,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     arrow: <><path d="M4 12h16m-7-7 7 7-7 7" /></>,
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></>,
     moon: <path d="M20.5 14.4A8.5 8.5 0 0 1 9.6 3.5 8.5 8.5 0 1 0 20.5 14.4Z" />,
+    refresh: <><path d="M20 11a8 8 0 1 0-2.2 5.5" /><path d="M20 4v7h-7" /></>,
   }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{drawing[name]}</svg>
 }
@@ -47,10 +48,6 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
 
   return (
     <section className="result-card" aria-label="Chi tiết sản phẩm">
-      <div className="result-eyebrow">
-        <span className="label-green">Thông tin hàng hóa</span>
-        <span className="result-version">Dữ liệu đã đồng bộ</span>
-      </div>
       <div className="product-main">
         <div className="product-image">
           {product.imageUrl
@@ -58,10 +55,9 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
             : <Icon name="image" size={33} />}
         </div>
         <div className="product-info">
-          <p className="eyebrow">THÔNG TIN SẢN PHẨM</p>
           <h2>{product.name || 'Chưa có tên hàng'}</h2>
           <p className="muted">Mã CTY: <strong>{product.companyCode}</strong></p>
-          <p className="muted">ĐVT tồn kho: <strong>{product.unit || 'Chưa xác nhận'}</strong></p>
+          <p className="muted">ĐVT: <strong>{product.unit || 'Chưa xác nhận'}</strong></p>
         </div>
       </div>
       <div className="metric-row">
@@ -75,27 +71,26 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
         </div>
         <div className="metric-time">
           <Icon name="clock" size={15} />
-          <span>{formatDate(product?.inventoryUpdatedAt ?? null)}</span>
+          <span>Nhập tồn: {formatDate(product?.inventoryUpdatedAt ?? null)}</span>
         </div>
       </div>
-      <section className="packaging-panel" aria-label="Quy cách đóng gói">
-        <div className="packaging-heading"><strong>Quy cách để báo khách</strong></div>
+      {(Boolean(carton.piecesPerCarton && spec.pieceUnit) || Boolean(spec.packUnit && spec.unitsPerPack && spec.pieceUnit) || Boolean(spec.packUnit && spec.packsPerCarton) || technical.length > 0 || Boolean(spec.packagingNote)) && <section className="packaging-panel" aria-label="Quy cách đóng gói">
+        <div className="packaging-heading"><strong>Quy cách</strong></div>
         {carton.piecesPerCarton && spec.pieceUnit ? (
           <>
             <p className="carton-fact"><strong>1 thùng</strong> = <strong>{number(carton.piecesPerCarton)} {spec.pieceUnit}</strong></p>
             {carton.totalPieces !== null && <p className="carton-equivalent">Tồn quy đổi: {number(carton.totalPieces)} {spec.pieceUnit} (từ {number(quantity!)} thùng)</p>}
             {carton.fullCartons !== null && <p className="carton-equivalent">Tương đương {number(carton.fullCartons)} thùng + {number(carton.remainder!)} {spec.pieceUnit} lẻ</p>}
           </>
-        ) : <p className="carton-unverified">Chưa có số sản phẩm/thùng được xác nhận — không tự quy đổi.</p>}
+        ) : null}
         {spec.packUnit && spec.unitsPerPack && spec.pieceUnit && <p className="packaging-detail">1 {spec.packUnit} = {number(spec.unitsPerPack)} {spec.pieceUnit}</p>}
         {spec.packUnit && spec.packsPerCarton && <p className="packaging-detail">1 thùng = {number(spec.packsPerCarton)} {spec.packUnit}</p>}
         {technical.length > 0 && <p className="packaging-detail">{technical.join(' · ')}</p>}
         {spec.packagingNote && <p className="packaging-detail">{spec.packagingNote}</p>}
-      </section>
+      </section>}
       <div className="price-panel">
         <div className="price-heading">
           <span>{defaultType?.label || 'GIÁ MẶC ĐỊNH'}</span>
-          <span className="price-flag">ĐANG HIỂN THỊ</span>
         </div>
         <strong className="main-price">{formatVnd(priceFor(product, snapshot.defaultPriceTypeId))}</strong>
         <button className="price-toggle" type="button" aria-expanded={allPrices} onClick={() => setAllPrices(!allPrices)}>
@@ -105,7 +100,7 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
         {allPrices && (
           <div className="price-list">
             {snapshot.priceTypes.length === 0
-              ? <p className="price-unavailable">Chưa có loại giá nào. Admin sẽ cấu hình sau khi import danh mục Excel.</p>
+              ? <p className="price-unavailable">Chưa có bảng giá.</p>
               : snapshot.priceTypes.map((type: PriceType) => (
                 <div className="price-list-row" key={type.id}>
                   <span>{type.label}{type.id === snapshot.defaultPriceTypeId ? ' · mặc định' : ''}</span>
@@ -115,7 +110,7 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
           </div>
         )}
       </div>
-      <p className="result-footer"><Icon name="clock" size={14} /> Dữ liệu tại lần nhập Excel gần nhất · Không phải tồn realtime</p>
+      <p className="result-footer">Tồn theo lần nhập Excel gần nhất</p>
     </section>
   )
 }
@@ -129,20 +124,17 @@ function paneFromHash(): Pane {
 function Sidebar({ isAdmin, pane, onNavigate }: { isAdmin: boolean; pane: Pane; onNavigate: (pane: Pane) => void }) {
   return (
     <aside className="sidebar">
-      <div className="menu-label">ĐIỀU HƯỚNG</div>
       <nav aria-label="Điều hướng STORE" className="side-nav">
-        <button className={'nav-item nav-button' + (pane === 'search' ? ' nav-active' : '')} type="button" aria-current={pane === 'search' ? 'page' : undefined} onClick={() => onNavigate('search')}><Icon name="search" size={20} />Tra cứu hàng hóa</button>
+        <button className={'nav-item nav-button' + (pane === 'search' ? ' nav-active' : '')} type="button" aria-current={pane === 'search' ? 'page' : undefined} onClick={() => onNavigate('search')}><Icon name="search" size={20} />Tra cứu</button>
         <button className={'nav-item nav-button' + (pane === 'catalog' ? ' nav-active' : '')} type="button" aria-current={pane === 'catalog' ? 'page' : undefined} onClick={() => onNavigate('catalog')}><Icon name="list" size={20} />Danh mục</button>
-        {isAdmin ? <button className={'nav-item nav-button' + (pane === 'excel' ? ' nav-active' : '')} type="button" aria-current={pane === 'excel' ? 'page' : undefined} onClick={() => onNavigate('excel')}><Icon name="upload" size={20} />Nhập Excel</button> : <div className="nav-item nav-inactive" aria-disabled="true"><Icon name="upload" size={20} />Nhập tồn Excel <span>Chỉ admin</span></div>}
+        {isAdmin && <button className={'nav-item nav-button' + (pane === 'excel' ? ' nav-active' : '')} type="button" aria-current={pane === 'excel' ? 'page' : undefined} onClick={() => onNavigate('excel')}><Icon name="upload" size={20} />Nhập Excel</button>}
       </nav>
-      <div className="sidebar-note"><span className="note-dot" /> <strong>Ảnh chụp tồn kho</strong><p>Số tồn lấy từ lần nhập Excel gần nhất, không phải tồn realtime.</p></div>
     </aside>
   )
 }
 
 interface AppProps {
   snapshot: CatalogSnapshot
-  catalogStatus: string
   cacheScope: string | null
   isLoading: boolean
   onReload: () => void
@@ -152,7 +144,7 @@ interface AppProps {
   getAdminToken: () => Promise<string>
 }
 
-export default function App({ snapshot, catalogStatus, cacheScope, isLoading, onReload, onSignOut, role, apiBase, getAdminToken }: AppProps) {
+export default function App({ snapshot, cacheScope, isLoading, onReload, onSignOut, role, apiBase, getAdminToken }: AppProps) {
   const [pane, setPane] = useState<Pane>(paneFromHash)
   const [theme, setTheme] = useState<'light' | 'dark'>(() =>
     document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
@@ -229,7 +221,7 @@ export default function App({ snapshot, catalogStatus, cacheScope, isLoading, on
           </button>
           <div className="top-actions"><button className="top-logout" onClick={onSignOut} type="button">Đăng xuất</button></div>
         </header>
-        <main ref={mainRef} className="main" id={pane === 'catalog' ? 'danh-muc' : pane === 'excel' ? 'nhap-excel' : 'tra-cuu'}>
+        <main ref={mainRef} className={pane === 'search' ? 'main main-search' : 'main'} id={pane === 'catalog' ? 'danh-muc' : pane === 'excel' ? 'nhap-excel' : 'tra-cuu'}>
           {pane === 'catalog' ? (
             <CatalogManager snapshot={snapshot} isAdmin={role === 'admin'} apiBase={apiBase}
               getAdminToken={getAdminToken} onSaved={onReload} onClose={() => navigate('search')}
@@ -237,23 +229,15 @@ export default function App({ snapshot, catalogStatus, cacheScope, isLoading, on
           ) : pane === 'excel' && role === 'admin' ? (
             <ExcelImport apiBase={apiBase} getToken={getAdminToken} onClose={() => navigate('search')} onSaved={onReload} />
           ) : <>
-          <div className="hero">
-            <span className="hero-tag">TRA CỨU HÀNG HÓA</span>
-            <h1>Mã hàng, giá & <span>tồn kho</span></h1>
-            <p>Nhập mã công ty hoặc tên hàng để xem thông tin đã đồng bộ.</p>
-          </div>
-          <div className="sync-row" role="status"><span><Icon name="clock" size={16} />{!isOnline ? 'Đang dùng dữ liệu đã lưu trên máy, nếu có' : isLoading ? 'Đang đồng bộ dữ liệu...' : (catalogStatus || 'Chưa có dữ liệu danh mục được đồng bộ')}</span><button type="button" onClick={onReload} disabled={isLoading || !isOnline}>Làm mới</button></div>
           <div className="columns">
             <div className="left-column">
-              <section className="search-panel" aria-labelledby="search-title">
-                <div className="panel-title"><div><h2 id="search-title">Tìm sản phẩm</h2></div><span className="shortcut-hint">Ưu tiên mã CTY</span></div>
-                <label htmlFor="store-search" className="field-label">Mã CTY, SKU hoặc tên hàng</label>
+              <section className="search-panel" aria-label="Tìm sản phẩm">
                 <div className="search-control">
                   <Icon name="search" size={22} />
-                  <input id="store-search" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedCode(null) }} autoComplete="off" spellCheck={false} placeholder="Nhập mã hoặc tên hàng..." />
+                  <input id="store-search" aria-label="Nhập mã CTY, SKU hoặc tên hàng" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedCode(null) }} autoComplete="off" spellCheck={false} placeholder="Tìm mã CTY, SKU hoặc tên hàng..." />
+                  <button className="search-refresh" type="button" aria-label="Làm mới dữ liệu" title="Làm mới" onClick={onReload} disabled={isLoading || !isOnline}><Icon name="refresh" size={19}/></button>
                 </div>
                 {query.trim() && results.length > 1 ? <div className="search-suggestions" aria-label="Các sản phẩm phù hợp">
-                  <div className="suggestions-heading">{Math.min(6, results.length)} gợi ý phù hợp · Gõ thêm để lọc</div>
                   {results.slice(0, 6).map((item) => (
                     <button type="button" key={item.companyCode} className={'suggestion' + (product?.companyCode === item.companyCode ? ' chosen' : '')}
                       aria-pressed={product?.companyCode === item.companyCode}
@@ -263,18 +247,12 @@ export default function App({ snapshot, catalogStatus, cacheScope, isLoading, on
                     </button>
                   ))}
                 </div> : null}
+                {(!isOnline || isLoading) && <p className="search-feedback" role="status">{!isOnline ? 'Đang ngoại tuyến · Dữ liệu có thể cũ' : 'Đang cập nhật...'}</p>}
               </section>
               {query.trim() !== '' && !product && (
                 <div className="search-warning" role="status"><Icon name="search" size={17} />{snapshot.products.length === 0 ? 'Chưa có danh mục được nhập Excel.' : 'Không tìm thấy sản phẩm theo từ khóa này.'}</div>
               )}
-              {product ? <ProductPreview key={product.companyCode} product={product} snapshot={snapshot} /> : query.trim() ? null : (
-                <section className="search-empty" aria-label="Hướng dẫn tra cứu">
-                  <span className="empty-mark"><Icon name="search" size={24} /></span>
-                  <h2>Sẵn sàng tra cứu</h2>
-                  <p>Nhập mã CTY, SKU hoặc tên sản phẩm phía trên. Thông tin chỉ hiển thị sau khi tìm thấy mã thực tế.</p>
-                  <span>{snapshot.products.length.toLocaleString('vi-VN')} mã trong danh mục đã đồng bộ</span>
-                </section>
-              )}
+              {product ? <ProductPreview key={product.companyCode} product={product} snapshot={snapshot} /> : (!query.trim() && snapshot.products.length === 0 ? <p className="search-feedback" role="status">Chưa có sản phẩm.</p> : null)}
             </div>
           </div>
           </>}
@@ -284,7 +262,6 @@ export default function App({ snapshot, catalogStatus, cacheScope, isLoading, on
           <button type="button" className={pane === 'catalog' ? 'active' : ''} aria-current={pane === 'catalog' ? 'page' : undefined} onClick={() => navigate('catalog')}><Icon name="list" size={21} /><span>Danh mục</span></button>
           {role === 'admin' && <button type="button" className={pane === 'excel' ? 'active' : ''} aria-current={pane === 'excel' ? 'page' : undefined} onClick={() => navigate('excel')}><Icon name="upload" size={21} /><span>Nhập Excel</span></button>}
         </nav>
-        <footer className="footer"><span>STORE · Ứng dụng tra cứu bán hàng</span><span>Snapshot Excel, không phải tồn realtime</span></footer>
       </div>
     </div>
   )

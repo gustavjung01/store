@@ -218,7 +218,7 @@ export default function CatalogManager({
       }
       setEditor(null)
       editorBaseline.current = null
-      setMessage('Đã lưu sản phẩm vào Neon. Đang đồng bộ lại danh mục để tra cứu.')
+      setMessage('Đã lưu sản phẩm.')
       onSaved()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không lưu được sản phẩm')
@@ -231,11 +231,7 @@ export default function CatalogManager({
   return (
     <section className="catalog-page" aria-label="Danh mục sản phẩm STORE">
       <div className="catalog-titlebar">
-        <div>
-          <span className="hero-tag"><span className="mini-glow" /> DANH MỤC HÀNG HÓA</span>
-          <h1>Danh mục <span>sản phẩm</span></h1>
-          <p>Mỗi mã CTY gắn với tên hàng rõ ràng. Tồn kho vẫn cập nhật riêng từ Excel, không phải realtime.</p>
-        </div>
+        <h1>Danh mục</h1>
         <div className="catalog-title-actions">
           {isAdmin && <button type="button" className="catalog-primary" onClick={startCreate}>+ Tạo sản phẩm</button>}
           <button type="button" className="catalog-secondary" onClick={onClose}>Về tra cứu</button>
@@ -244,8 +240,7 @@ export default function CatalogManager({
 
       <div className="catalog-stats">
         <div><strong>{snapshot.products.length.toLocaleString('vi-VN')}</strong><span>Tổng mã CTY</span></div>
-        <div><strong>{(snapshot.products.length - unnamed).toLocaleString('vi-VN')}</strong><span>Đã có tên hàng</span></div>
-        <div className={unnamed ? 'needs-name' : ''}><strong>{unnamed.toLocaleString('vi-VN')}</strong><span>Chưa có tên · cần bổ sung</span></div>
+        <div className={unnamed ? 'needs-name' : ''}><strong>{unnamed.toLocaleString('vi-VN')}</strong><span>Thiếu tên</span></div>
       </div>
 
       {isAdmin && editor && (
@@ -256,7 +251,7 @@ export default function CatalogManager({
             <div><h2 id="catalog-dialog-title">{editor.mode === 'create' ? 'Tạo sản phẩm mới' : 'Hoàn thiện / sửa sản phẩm'}</h2></div>
             <button type="button" className="catalog-secondary" onClick={closeEditor} disabled={saving} aria-label="Đóng cửa sổ chỉnh sửa">Đóng</button>
           </div>
-          <p className="catalog-dialog-hint">{editor.mode === 'create' ? 'Nhập mã thực tế và tên hàng, không cần khai tồn lúc này.' : 'Mã CTY không được thay đổi để bảo toàn giá và lịch sử tồn.'}</p>
+          <p className="catalog-dialog-hint">{editor.mode === 'create' ? 'Nhập mã và tên hàng.' : 'Không thể sửa mã CTY.'}</p>
           <div className="catalog-form-grid">
             <label><span>Mã CTY <b>*</b></span><input type="text" required maxLength={120} value={editor.companyCode}
               onChange={e => patch({ companyCode: e.target.value })} disabled={editor.mode === 'update' || saving}
@@ -269,7 +264,7 @@ export default function CatalogManager({
           </div>
           <section className="catalog-spec-section">
             <h3>Quy cách đóng gói</h3>
-            <p>Nhập đúng số lượng công ty xác nhận. Để trống nếu chưa rõ, STORE sẽ không tự tính quy đổi.</p>
+            <p>Chỉ điền thông số đã xác nhận.</p>
             <div className="catalog-form-grid">
               <label><span>Đơn vị sản phẩm lẻ</span><input maxLength={40} value={editor.spec.pieceUnit} onChange={e => patchSpec('pieceUnit', e.target.value)} disabled={saving} placeholder="Quyển, cái..." /></label>
               <label><span>Số sản phẩm / thùng</span><input type="number" min="1" max="100000000" step="1" value={editor.spec.unitsPerCarton} onChange={e => patchSpec('unitsPerCarton', e.target.value)} disabled={saving} placeholder="Để trống nếu chưa biết" /></label>
@@ -289,7 +284,7 @@ export default function CatalogManager({
               </div>
             </details>
           </section>
-          <p className="catalog-form-note">ĐVT mới không tự đổi số tồn hiện có. Giá và tồn chỉ thay đổi qua quy trình riêng; không nhập số liệu giả.</p>
+          <p className="catalog-form-note">Đổi đơn vị tính không tự quy đổi số tồn.</p>
           {error && <div className="catalog-error" role="alert">{error}</div>}
           <div className="catalog-form-actions">
             <button type="button" className="catalog-secondary" disabled={saving} onClick={closeEditor}>Hủy</button>
@@ -305,8 +300,8 @@ export default function CatalogManager({
       {message && <div className="store-toast" role="status"><span>{message}</span><button type="button" aria-label="Đóng thông báo" onClick={() => setMessage('')}>×</button></div>}
       <div className="catalog-list">
         <div className="catalog-list-head">
-          <div><h2>Danh sách sản phẩm</h2><p>Tra theo mã CTY, SKU hoặc tên hàng.</p></div>
-          <button type="button" className="catalog-secondary" onClick={onSaved} disabled={isLoading || !isOnline}>Đồng bộ lại</button>
+          <span className="catalog-list-count">{filtered.length.toLocaleString('vi-VN')} sản phẩm</span>
+          <button type="button" className="catalog-secondary" onClick={onSaved} disabled={isLoading || !isOnline}>Làm mới</button>
         </div>
         <div className="catalog-toolbar">
           <input type="search" aria-label="Tìm trong danh mục" value={query} onChange={e => setQuery(e.target.value)}
@@ -314,7 +309,7 @@ export default function CatalogManager({
           <label><input type="checkbox" checked={onlyUnnamed} onChange={e => setOnlyUnnamed(e.target.checked)} /> Chỉ xem mã thiếu tên</label>
         </div>
         {!filtered.length
-          ? <div className="catalog-empty">{snapshot.products.length === 0 ? 'Chưa có sản phẩm. Admin có thể tạo từng sản phẩm hoặc nhập danh mục Excel.' : 'Không tìm thấy sản phẩm phù hợp.'}</div>
+          ? <div className="catalog-empty">{snapshot.products.length === 0 ? 'Chưa có sản phẩm.' : 'Không tìm thấy sản phẩm phù hợp.'}</div>
           : <div className="catalog-items">
             {filtered.slice(0, visible).map(item => {
               const currentState = stockState(item.quantity)
@@ -342,14 +337,14 @@ export default function CatalogManager({
       </div>
 
       {isAdmin && <section className="catalog-audit">
-        <h2>Nhật ký chỉnh sửa danh mục</h2>
+        <h2>Lịch sử chỉnh sửa</h2>
         {historyError && <p className="catalog-hint">{historyError}</p>}
         {edits.length ? edits.slice(0, 8).map(entry => (
           <div className="catalog-audit-item" key={entry.id}>
             <span>{entry.action === 'create' ? 'Tạo' : 'Sửa'} <strong>{entry.company_code}</strong> · {entry.after_data?.name || 'Chưa có tên'}</span>
             <small>{new Date(entry.created_at).toLocaleString('vi-VN')}</small>
           </div>
-        )) : <p className="catalog-hint">Chưa có thay đổi danh mục thủ công nào.</p>}
+        )) : <p className="catalog-hint">Chưa có lịch sử chỉnh sửa.</p>}
       </section>}
     </section>
   )
