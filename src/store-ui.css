@@ -327,3 +327,30 @@ button:disabled{cursor:not-allowed;opacity:.55}
   .excel-pack-fields .excel-grid{grid-template-columns:1fr}
   .excel-pack-fields summary{min-height:44px}
 }
+
+
+/* Compact business-first layout: search and results, without presentation banners. */
+.main-search{padding-top:20px}
+.main-search .search-panel{padding:14px 16px;margin-bottom:12px}
+.main-search .search-control{height:54px;min-height:54px}
+.main-search .search-control input{min-width:0;flex:1}
+.search-refresh{display:grid;place-items:center;flex:none;width:44px;height:44px;min-width:44px;min-height:44px;margin-right:-7px;padding:0;background:transparent;border:0;border-radius:9px;color:var(--store-muted)}
+.search-refresh:hover:not(:disabled){background:var(--store-accent-subtle);color:var(--store-accent-strong)}
+.search-refresh:focus-visible{outline:2px solid var(--store-accent);outline-offset:1px}
+.search-feedback{font-size:12px;line-height:1.5;color:var(--store-muted);margin:10px 2px 0}
+.main-search>.columns{margin:0}
+.main-search .result-card{padding-top:18px}
+.main-search .result-footer{margin:14px 0 0;font-size:11px;color:var(--store-muted)}
+.catalog-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+.catalog-list-count{font-size:13px;font-weight:650;color:var(--store-muted)}
+.catalog-list-head{align-items:center}
+.excel-guidance{margin:12px 0;font-size:12px;color:var(--store-muted)}
+.excel-guidance summary{cursor:pointer;min-height:34px;display:flex;align-items:center;font-weight:650;color:var(--store-accent-strong)}
+.excel-guidance p{margin:4px 0 8px;line-height:1.55}
+@media(max-width:780px){
+  .main-search{padding:12px 14px 24px}
+  .main-search .search-panel{padding:12px}
+  .main-search .search-control{height:52px;min-height:52px}
+  .main-search .result-card{padding:15px}
+  .catalog-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
