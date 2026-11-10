@@ -300,3 +300,11 @@
 @media(prefers-reduced-motion:reduce){
   .theme-track>span{transition:none}
 }
+
+/* Tabs and read-only price summary stay calm in dark mode. */
+:root[data-theme="dark"] .catalog-editor-tabs{background:var(--store-surface);border-color:var(--store-line)}
+:root[data-theme="dark"] .catalog-editor-tabs button{background:#1b2931;border-color:#31434a;color:#bacbc8}
+:root[data-theme="dark"] .catalog-editor-tabs button.active{background:#263f39;border-color:#52766b;color:#cce4d8}
+:root[data-theme="dark"] .catalog-price-stock>div{background:#1b2b30;border-color:var(--store-line)}
+:root[data-theme="dark"] .catalog-price-lines{border-color:var(--store-line)}
+:root[data-theme="dark"] .catalog-price-lines>div{border-color:var(--store-line)}

@@ -70,3 +70,15 @@ test('business UI uses short Vietnamese copy without provider internals', () => 
   assert.match(catalogue, /<h1>Danh mục<\/h1>/)
   assert.doesNotMatch(catalogue, /<h1>Danh mục <span>sản phẩm<\/span><\/h1>/)
 })
+
+test('catalog product editor groups fields without changing stock or price', () => {
+  assert.match(catalogue, /editorTab === 'basic'/)
+  assert.match(catalogue, /editorTab === 'package'/)
+  assert.match(catalogue, /editorTab === 'spec'/)
+  assert.match(catalogue, /editorTab === 'prices'/)
+  assert.match(catalogue, /catalog-price-overview/)
+  assert.match(catalogue, /Giá và tồn kho được cập nhật riêng trong mục Nhập Excel/)
+  assert.match(catalogue, /setEditorTab\('basic'\)/)
+  assert.match(css, /\.catalog-editor-tabs\{position:sticky/)
+  assert.match(css, /\.catalog-editor-panel\{/)
+})
