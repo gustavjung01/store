@@ -29,8 +29,11 @@ export function buildMappedImport(
   filename: string,
 ): { payload: ImportPayload | null; issues: ImportIssue[] } {
   const issues: ImportIssue[] = []
-  if (!Number.isInteger(headerRow) || headerRow < 1 || headerRow >= sheet.data.length) {
+  if (!Number.isInteger(headerRow) || headerRow < 1 || headerRow > sheet.data.length) {
     return { payload: null, issues: [{ rowNumber: 0, message: 'Chọn dòng tiêu đề hợp lệ' }] }
+  }
+  if (headerRow === sheet.data.length) {
+    return { payload: null, issues: [{ rowNumber: 0, message: 'Trang tính chưa có dòng dữ liệu sau dòng tiêu đề. Hãy thêm sản phẩm vào Excel rồi chọn lại file.' }] }
   }
   if (select.code < 0 || (kind === 'inventory' && select.quantity < 0)) {
     return { payload: null, issues: [{ rowNumber: 0, message: 'Cần chọn cột mã CTY và số tồn' }] }
