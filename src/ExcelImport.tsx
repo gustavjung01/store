@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { buildMappedImport, columnHeader } from './excelImportMapping'
 import ExcelColumnMapper from './ExcelColumnMapper'
-import { emptyMapping, suggestMapping } from './excelColumnMapping'
+import { availableHeaderRows, emptyMapping, suggestMapping } from './excelColumnMapping'
 import type { ColumnSelection, ExcelSheet } from './excelImportMapping'
 import type { ImportKind, ImportIssue } from '../server/importValidation'
 
@@ -217,9 +217,10 @@ export default function ExcelImport({
         {sheet && <>
           <div className="excel-grid">
             <label className="excel-field"><span>Trang tính</span><select value={sheetIndex} disabled={busy} onChange={e=>{const index=Number(e.target.value);setSheetIndex(index);setHeaderRow(1);resetForNewFile();setMapping(suggestMapping(sheets[index],1,kind))}}>{sheets.map((s,i)=><option key={s.sheet} value={i}>{s.sheet}</option>)}</select></label>
-            <label className="excel-field"><span>Dòng tiêu đề</span><select value={headerRow} disabled={busy} onChange={e=>{const row=Number(e.target.value);setHeaderRow(row);resetForNewFile();setMapping(suggestMapping(sheet,row,kind))}}>{Array.from({length:Math.min(20,Math.max(0,sheet.data.length-1))},(_,i)=><option value={i+1} key={i+1}>Dòng {i+1}</option>)}</select></label>
+            <label className="excel-field"><span>Dòng tiêu đề</span><select value={sheet.data.length ? headerRow : ''} disabled={busy || sheet.data.length === 0} onChange={e=>{const row=Number(e.target.value);setHeaderRow(row);resetForNewFile();setMapping(suggestMapping(sheet,row,kind))}}>{sheet.data.length === 0 && <option value="">Trang tính trống</option>}{availableHeaderRows(sheet).map(row=><option value={row} key={row}>Dòng {row}</option>)}</select></label>
           </div>
 
+          {sheet.data.length <= headerRow && <p className="excel-unit-warning" role="status">Trang tính này chỉ có dòng tiêu đề hoặc đang trống, chưa có dòng sản phẩm để nhập. Anh thêm dữ liệu vào Excel rồi chọn lại file. Chưa có dữ liệu nào được ghi.</p>}
           <div className="excel-auto-map-note">
             <span>Đã gợi ý các cột có tên rõ ràng. Anh có thể chọn lại từng cột.</span>
             <button type="button" disabled={busy} onClick={resetSuggestedColumns}>Nhận diện lại</button>
@@ -247,7 +248,7 @@ export default function ExcelImport({
             </label>}
           </div>}
           <details className="excel-guidance"><summary>Lưu ý khi nhập</summary><p>Mã CTY phải là dạng văn bản để giữ số 0 đầu. Số tồn theo đơn vị tính của từng mã; mã mới chưa rõ đơn vị tính không tự coi là thùng. Đơn vị tính mặc định chỉ áp dụng cho mã mới. Mã không có trong file sẽ giữ nguyên số tồn.</p></details>
-          <button className="excel-primary" type="button" disabled={busy} onClick={()=>{void previewImport()}}>{busy ? 'Đang xử lý...' : 'Bước 3 · Xem trước thay đổi'}</button>
+          <button className="excel-primary" type="button" disabled={busy || sheet.data.length <= headerRow} onClick={()=>{void previewImport()}}>{busy ? 'Đang xử lý...' : 'Bước 3 · Xem trước thay đổi'}</button>
         </>}
         {issues.length > 0 && <div className="excel-issues" role="alert"><strong>Chưa thể xác nhận: {issues.length} lỗi được phát hiện</strong>{issues.slice(0,30).map((i,index)=><p key={index}>Dòng {i.rowNumber || 'cấu hình'}: {i.message}</p>)}</div>}
         {error && <div className="excel-issues" role="alert">{error}</div>}
