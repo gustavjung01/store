@@ -210,26 +210,26 @@ export default function ExcelImport({
       <div className="excel-heading"><h2>Nhập Excel</h2><button onClick={onClose} type="button">Về tra cứu</button></div>
       <div className="excel-card">
         <div className="excel-kinds">
-          <button className={kind === 'inventory' ? 'active' : ''} type="button" onClick={()=>changeKind('inventory')}>Nhập tồn kho</button>
-          <button className={kind === 'catalog' ? 'active' : ''} type="button" onClick={()=>changeKind('catalog')}>Danh mục & bảng giá</button>
+          <button className={kind === 'inventory' ? 'active' : ''} type="button" disabled={busy} onClick={()=>changeKind('inventory')}>Nhập tồn kho</button>
+          <button className={kind === 'catalog' ? 'active' : ''} type="button" disabled={busy} onClick={()=>changeKind('catalog')}>Danh mục & bảng giá</button>
         </div>
-        <label className="excel-file"><span>Bước 1 · Chọn file .xlsx (tối đa 2 MB)</span><input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={e=>{void chooseFile(e)}} /></label>
+        <label className="excel-file"><span>Bước 1 · Chọn file .xlsx (tối đa 2 MB)</span><input type="file" disabled={busy} accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={e=>{void chooseFile(e)}} /></label>
         {sheet && <>
           <div className="excel-grid">
-            <label className="excel-field"><span>Trang tính</span><select value={sheetIndex} onChange={e=>{const index=Number(e.target.value);setSheetIndex(index);setHeaderRow(1);resetForNewFile();setMapping(suggestMapping(sheets[index],1,kind))}}>{sheets.map((s,i)=><option key={s.sheet} value={i}>{s.sheet}</option>)}</select></label>
-            <label className="excel-field"><span>Dòng tiêu đề</span><select value={headerRow} onChange={e=>{const row=Number(e.target.value);setHeaderRow(row);resetForNewFile();setMapping(suggestMapping(sheet,row,kind))}}>{Array.from({length:Math.min(20,Math.max(0,sheet.data.length-1))},(_,i)=><option value={i+1} key={i+1}>Dòng {i+1}</option>)}</select></label>
+            <label className="excel-field"><span>Trang tính</span><select value={sheetIndex} disabled={busy} onChange={e=>{const index=Number(e.target.value);setSheetIndex(index);setHeaderRow(1);resetForNewFile();setMapping(suggestMapping(sheets[index],1,kind))}}>{sheets.map((s,i)=><option key={s.sheet} value={i}>{s.sheet}</option>)}</select></label>
+            <label className="excel-field"><span>Dòng tiêu đề</span><select value={headerRow} disabled={busy} onChange={e=>{const row=Number(e.target.value);setHeaderRow(row);resetForNewFile();setMapping(suggestMapping(sheet,row,kind))}}>{Array.from({length:Math.min(20,Math.max(0,sheet.data.length-1))},(_,i)=><option value={i+1} key={i+1}>Dòng {i+1}</option>)}</select></label>
           </div>
 
           <div className="excel-auto-map-note">
             <span>Đã gợi ý các cột có tên rõ ràng. Anh có thể chọn lại từng cột.</span>
-            <button type="button" onClick={resetSuggestedColumns}>Nhận diện lại</button>
+            <button type="button" disabled={busy} onClick={resetSuggestedColumns}>Nhận diện lại</button>
           </div>
           <ExcelColumnMapper key={sheet.sheet + ':' + headerRow + ':' + kind} sheet={sheet}
-            headerRow={headerRow} kind={kind} mapping={mapping}
-            onChange={next=>{setMapping(next);setPreview(null);setIssues([]);setMessage('')}} />
+            headerRow={headerRow} kind={kind} mapping={mapping} disabled={busy}
+            onChange={next=>{setMapping(next);setPreview(null);setIssues([]);setError('');setMessage('')}} />
           {kind === 'catalog' && <div className="excel-extra-settings">
             <label className="excel-field"><span>ĐVT mặc định cho mã mới (khi file không có ĐVT)</span>
-              <select value={mapping.defaultUnitForNew ?? ''} onChange={e=>changeMapping({defaultUnitForNew:e.target.value || null})}>
+              <select value={mapping.defaultUnitForNew ?? ''} disabled={busy} onChange={e=>changeMapping({defaultUnitForNew:e.target.value || null})}>
                 <option value="">Không tự gán</option>
                 <option value="Thùng">Thùng</option>
                 <option value="Hộp">Hộp</option>
@@ -240,7 +240,7 @@ export default function ExcelImport({
               </select>
             </label>
             {mapping.prices.length > 0 && <label className="excel-field"><span>Loại giá hiển thị mặc định</span>
-              <select value={mapping.defaultPriceColumn} onChange={e=>changeMapping({defaultPriceColumn:Number(e.target.value)})}>
+              <select value={mapping.defaultPriceColumn} disabled={busy} onChange={e=>changeMapping({defaultPriceColumn:Number(e.target.value)})}>
                 <option value={-1}>Giữ mặc định hiện tại</option>
                 {headers.filter(h=>mapping.prices.includes(h.value)).map(h=><option key={h.value} value={h.value}>{h.label}</option>)}
               </select>
