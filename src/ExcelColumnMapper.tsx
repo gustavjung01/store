@@ -10,6 +10,7 @@ type Props = {
   headerRow: number
   kind: ImportKind
   mapping: ColumnSelection
+  disabled: boolean
   onChange: (mapping: ColumnSelection) => void
 }
 
@@ -29,7 +30,7 @@ function excelColumnName(index: number): string {
   return name
 }
 
-export default function ExcelColumnMapper({ sheet, headerRow, kind, mapping, onChange }: Props) {
+export default function ExcelColumnMapper({ sheet, headerRow, kind, mapping, disabled, onChange }: Props) {
   const [page, setPage] = useState(0)
   const columns = useMemo(() => {
     const scanned = sheet.data.slice(Math.max(0, headerRow-1), headerRow+SAMPLE_ROWS)
@@ -59,8 +60,8 @@ export default function ExcelColumnMapper({ sheet, headerRow, kind, mapping, onC
       <div className="excel-column-map-pager">
         <span>Đang xem {remaining.length === 0 ? 0 : safePage*PAGE_SIZE+1}–{Math.min(remaining.length,(safePage+1)*PAGE_SIZE)} / {remaining.length} cột {codeColumn >= 0 ? '· Mã CTY cố định bên trái' : ''}</span>
         <div>
-          <button type="button" disabled={safePage===0} onClick={() => setPage(p => Math.max(0,p-1))}>‹ Trước</button>
-          <button type="button" disabled={safePage>=maxPage} onClick={() => setPage(p => Math.min(maxPage,p+1))}>Tiếp ›</button>
+          <button type="button" disabled={disabled || safePage===0} onClick={() => setPage(p => Math.max(0,p-1))}>‹ Trước</button>
+          <button type="button" disabled={disabled || safePage>=maxPage} onClick={() => setPage(p => Math.min(maxPage,p+1))}>Tiếp ›</button>
         </div>
       </div>
       <div className="excel-column-map-scroll" tabIndex={0} aria-label="Bảng xem trước và chọn cột Excel">
@@ -75,6 +76,7 @@ export default function ExcelColumnMapper({ sheet, headerRow, kind, mapping, onC
                   <select
                     aria-label={'Thuộc tính cho cột ' + excelColumnName(column) + ', ' + header}
                     value={target}
+                    disabled={disabled}
                     onChange={e => onChange(mapColumn(mapping,column,e.target.value as ColumnTarget,kind))}
                   >
                     <option value="skip">— Bỏ qua —</option>
