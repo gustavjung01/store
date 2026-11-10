@@ -1,6 +1,18 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyMapping, mapColumn, suggestMapping, targetForColumn } from '../src/excelColumnMapping.ts'
+import { availableHeaderRows, emptyMapping, mapColumn, suggestMapping, targetForColumn } from '../src/excelColumnMapping.ts'
+import { buildMappedImport } from '../src/excelImportMapping.ts'
+
+test('header dropdown includes row 1 for a header-only Excel template', () => {
+  const template = { sheet: 'SAN PHAM', data: [['Mã CTY', 'Tên hàng', 'Đơn vị tính']] }
+  assert.deepEqual(availableHeaderRows(template), [1])
+  assert.deepEqual(availableHeaderRows({ sheet: 'TRONG', data: [] }), [])
+  assert.deepEqual(availableHeaderRows({ sheet: 'DAY DU', data: Array.from({ length: 25 }, () => []) }), Array.from({ length: 20 }, (_, i) => i + 1))
+  const mapping = { ...emptyMapping(), code: 0, name: 1 }
+  const result = buildMappedImport(template, 1, mapping, 'catalog', 'mau.xlsx')
+  assert.equal(result.payload, null)
+  assert.match(result.issues[0].message, /chưa có dòng dữ liệu/i)
+})
 
 test('single-sheet STORE catalogue suggests exact columns, never selects prices', () => {
   const sheet = { sheet: 'DANH_MUC', data: [
