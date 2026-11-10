@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { findProducts, normalizeCode, formatDate, formatVnd, priceFor, stockState } from './domain'
 import { findCachedByCompanyCode } from './cache'
 import { safeProductSpec, wholesaleConversion } from './productSpec'
+import { knownProductFactCount, productFactGroups } from './productFacts'
 import ExcelImport from './ExcelImport'
 import CatalogManager from './CatalogManager'
 import type { CatalogSnapshot, PriceType, ProductRecord } from './domain'
@@ -37,13 +38,9 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
   const spec = safeProductSpec(product.productSpec)
   const carton = wholesaleConversion(quantity, product.unit, spec)
   const number = (value: number) => value.toLocaleString('vi-VN')
-  const technical = [
-    spec.paperSize ? 'Khổ ' + spec.paperSize : null,
-    spec.pages ? number(spec.pages) + ' trang' : null,
-    spec.ruling,
-    spec.gsm ? number(spec.gsm) + ' GSM' : null,
-    spec.coverType ? 'Bìa ' + spec.coverType : null,
-  ].filter(Boolean)
+  const factGroups = productFactGroups(product)
+  const knownFactCount = knownProductFactCount(factGroups)
+  const totalFactCount = factGroups.reduce((total, group) => total + group.facts.length, 0)
   const stockLabel = state === 'available' ? 'Còn hàng' : state === 'empty' ? 'Hết hàng' : 'Chưa có dữ liệu'
 
   return (
@@ -74,20 +71,37 @@ function ProductPreview({ product, snapshot }: { product: ProductRecord; snapsho
           <span>Nhập tồn: {formatDate(product?.inventoryUpdatedAt ?? null)}</span>
         </div>
       </div>
-      {(Boolean(carton.piecesPerCarton && spec.pieceUnit) || Boolean(spec.packUnit && spec.unitsPerPack && spec.pieceUnit) || Boolean(spec.packUnit && spec.packsPerCarton) || technical.length > 0 || Boolean(spec.packagingNote)) && <section className="packaging-panel" aria-label="Quy cách đóng gói">
-        <div className="packaging-heading"><strong>Quy cách</strong></div>
-        {carton.piecesPerCarton && spec.pieceUnit ? (
-          <>
+      <section className="product-attributes" aria-label="Thuộc tính sản phẩm">
+        <div className="product-attributes-header">
+          <h3>Thuộc tính sản phẩm</h3>
+          <span>{knownFactCount}/{totalFactCount} thông tin đã có</span>
+        </div>
+        <div className="product-attribute-groups">
+          {factGroups.map(group => (
+            <section className="product-attribute-group" aria-label={group.title} key={group.key}>
+              <h4>{group.title}</h4>
+              <dl className="product-attribute-list">
+                {group.facts.map(fact => (
+                  <div className="product-attribute-row" key={fact.key}>
+                    <dt>{fact.label}</dt>
+                    <dd className={fact.value === null ? 'product-attribute-missing' : ''}>
+                      {fact.value ?? 'Chưa cập nhật'}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ))}
+        </div>
+        {knownFactCount === 0 && <p className="product-attributes-notice">Sản phẩm này chưa có thuộc tính được lưu. STORE không tự suy đoán thông số từ tên hàng.</p>}
+        {(carton.piecesPerCarton !== null && spec.pieceUnit) && (
+          <div className="product-attribute-conversion" aria-label="Quy đổi tồn từ quy cách đã lưu">
             <p className="carton-fact"><strong>1 thùng</strong> = <strong>{number(carton.piecesPerCarton)} {spec.pieceUnit}</strong></p>
-            {carton.totalPieces !== null && <p className="carton-equivalent">Tồn quy đổi: {number(carton.totalPieces)} {spec.pieceUnit} (từ {number(quantity!)} thùng)</p>}
-            {carton.fullCartons !== null && <p className="carton-equivalent">Tương đương {number(carton.fullCartons)} thùng + {number(carton.remainder!)} {spec.pieceUnit} lẻ</p>}
-          </>
-        ) : null}
-        {spec.packUnit && spec.unitsPerPack && spec.pieceUnit && <p className="packaging-detail">1 {spec.packUnit} = {number(spec.unitsPerPack)} {spec.pieceUnit}</p>}
-        {spec.packUnit && spec.packsPerCarton && <p className="packaging-detail">1 thùng = {number(spec.packsPerCarton)} {spec.packUnit}</p>}
-        {technical.length > 0 && <p className="packaging-detail">{technical.join(' · ')}</p>}
-        {spec.packagingNote && <p className="packaging-detail">{spec.packagingNote}</p>}
-      </section>}
+            {carton.totalPieces !== null && quantity !== null && <p className="carton-equivalent">Tồn quy đổi: {number(carton.totalPieces)} {spec.pieceUnit} (từ {number(quantity)} thùng)</p>}
+            {carton.fullCartons !== null && carton.remainder !== null && <p className="carton-equivalent">Tương đương {number(carton.fullCartons)} thùng + {number(carton.remainder)} {spec.pieceUnit} lẻ</p>}
+          </div>
+        )}
+      </section>
       <div className="price-panel">
         <div className="price-heading">
           <span>{defaultType?.label || 'GIÁ MẶC ĐỊNH'}</span>

@@ -51,6 +51,11 @@
 - [x] Dùng API preview, transaction, audit và rollback hiện có; chưa đổi DB hay backend.
 - [ ] Nghiệm thu trên thiết bị thật và file Excel công ty; xác nhận preview của từng thông số trước khi ghi.
 
+## UI — Thẻ tra cứu đầy đủ thuộc tính (10/11/2026)
+- [x] Tra cứu hiển thị SKU, nhóm hàng, 5 thông số và 6 trường đóng gói dù một số trường chưa có dữ liệu; phân biệt `Chưa cập nhật` với giá trị thật.
+- [x] Chỉ hiển thị quy đổi thùng dựa trên dữ liệu quy cách hợp lệ đã lưu; không suy đoán từ tên hàng, không sửa API hoặc DB.
+- [ ] CI xanh và UAT mobile/desktop sau khi triển khai; đối chiếu file danh mục thật cho các mã còn thiếu thông số.
+
 ## P2 — Import Excel an toàn
 - [x] Đã viết và CI kiểm thử UI/API admin import `.xlsx` danh mục và nhiều loại giá; chọn sheet, mapping, preview. Chưa xác nhận bằng Excel thật.
 - [x] Đã viết validation tồn mã CTY + số lượng; kiểm tra 0/NULL, trùng, âm, mã mới; test unit thành công.
