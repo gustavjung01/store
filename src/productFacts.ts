@@ -1,5 +1,5 @@
 import type { ProductRecord } from './domain'
-import { safeProductSpec } from './productSpec'
+import { safeProductSpec } from './productSpec.ts'
 
 export type ProductFact = { key: string; label: string; value: string | null }
 export type ProductFactGroup = { key: string; title: string; facts: ProductFact[] }
