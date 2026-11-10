@@ -316,3 +316,18 @@
 }
 :root[data-theme="dark"] .catalog-form-grid .catalog-attribute-field>select:focus{border-color:var(--store-accent);box-shadow:var(--store-focus)}
 :root[data-theme="dark"] .catalog-form-grid .catalog-attribute-field>select:disabled{background:#242d37;color:#9faab6}
+
+/* Calm dark column mapper, no bright spreadsheet panels. */
+:root[data-theme="dark"] .excel-column-map{background:var(--store-surface);border-color:var(--store-line)}
+:root[data-theme="dark"] .excel-auto-map-note button,
+:root[data-theme="dark"] .excel-column-map-pager button{background:#25343a;border-color:#405652;color:#bfdbd3}
+:root[data-theme="dark"] .excel-column-map-pager,
+:root[data-theme="dark"] .excel-column-map-scroll th,
+:root[data-theme="dark"] .excel-mapped-count{background:#203039;color:#b9d0ca;border-color:var(--store-line)}
+:root[data-theme="dark"] .excel-column-map-heading,
+:root[data-theme="dark"] .excel-column-map-note,
+:root[data-theme="dark"] .excel-column-map-scroll th,
+:root[data-theme="dark"] .excel-column-map-scroll td{border-color:var(--store-line)}
+:root[data-theme="dark"] .excel-column-map-scroll td{background:var(--store-surface);color:var(--store-muted)}
+:root[data-theme="dark"] .excel-mapper-col-label{color:var(--store-ink)}
+:root[data-theme="dark"] .excel-column-map-scroll th select{background:var(--store-input);border-color:var(--store-line);color:var(--store-ink);color-scheme:dark}
