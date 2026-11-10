@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { formatVnd, normalizeCode, priceFor, stockState } from './domain'
+import { formatDate, formatVnd, normalizeCode, priceFor, stockState } from './domain'
 import type { CatalogSnapshot, ProductRecord } from './domain'
 import { normalizeProductSpec, safeProductSpec, piecesPerCarton } from './productSpec'
 import type { ProductSpec } from './productSpec'
@@ -52,6 +52,7 @@ export default function CatalogManager({
   const [onlyUnnamed, setOnlyUnnamed] = useState(false)
   const [visible, setVisible] = useState(40)
   const [editor, setEditor] = useState<Editor | null>(null)
+  const [editorTab, setEditorTab] = useState<'basic' | 'package' | 'spec' | 'prices'>('basic')
   const editorBaseline = useRef<Editor | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState('')
@@ -113,12 +114,14 @@ export default function CatalogManager({
     }
     editorBaseline.current = original
     setEditor({ ...original })
+    setEditorTab('basic')
     setError('');setMessage('')
   }
 
   function startCreate() {
     editorBaseline.current = { ...blank, spec: { ...specBlank } }
     setEditor({ ...blank, spec: { ...specBlank } })
+    setEditorTab('basic')
     setError('');setMessage('')
   }
 
@@ -186,6 +189,7 @@ export default function CatalogManager({
     if (!isOnline) { setError('Cần có mạng để ghi danh mục STORE'); return }
     if (!snapshot.version) { setError('Cần đồng bộ danh mục mới nhất trước khi lưu'); return }
     if (!editor.companyCode.trim() || !editor.name.trim()) {
+      setEditorTab('basic')
       setError('Mã CTY và tên hàng là hai trường bắt buộc')
       return
     }
@@ -228,6 +232,7 @@ export default function CatalogManager({
   }
 
   const defaultType = snapshot.priceTypes.find(t => t.id === snapshot.defaultPriceTypeId)
+  const editingProduct = editor?.mode === 'update' ? snapshot.products.find(p => p.companyCode === editor.companyCode) : null
   return (
     <section className="catalog-page" aria-label="Danh mục sản phẩm STORE">
       <div className="catalog-titlebar">
@@ -251,40 +256,56 @@ export default function CatalogManager({
             <div><h2 id="catalog-dialog-title">{editor.mode === 'create' ? 'Tạo sản phẩm mới' : 'Hoàn thiện / sửa sản phẩm'}</h2></div>
             <button type="button" className="catalog-secondary" onClick={closeEditor} disabled={saving} aria-label="Đóng cửa sổ chỉnh sửa">Đóng</button>
           </div>
-          <p className="catalog-dialog-hint">{editor.mode === 'create' ? 'Nhập mã và tên hàng.' : 'Không thể sửa mã CTY.'}</p>
-          <div className="catalog-form-grid">
-            <label><span>Mã CTY <b>*</b></span><input type="text" required maxLength={120} value={editor.companyCode}
-              onChange={e => patch({ companyCode: e.target.value })} disabled={editor.mode === 'update' || saving}
-              autoComplete="off" spellCheck={false} placeholder="Nhập đúng mã trên Excel" /></label>
-            <label><span>Tên hàng <b>*</b></span><input type="text" required maxLength={400} value={editor.name}
-              onChange={e => patch({ name: e.target.value })} disabled={saving} autoComplete="off" placeholder="Tên sản phẩm đầy đủ theo danh mục công ty" /></label>
-            <label><span>SKU</span><input maxLength={120} value={editor.sku} onChange={e => patch({ sku: e.target.value })} disabled={saving} placeholder="Không bắt buộc" /></label>
-            <label><span>ĐVT tồn kho (mặc định Thùng cho mã mới)</span><input list="store-units" maxLength={60} value={editor.unit} onChange={e => patch({ unit: e.target.value })} disabled={saving} placeholder="Chọn hoặc nhập ĐVT thực tế" /><datalist id="store-units"><option value="Thùng" /><option value="Hộp" /><option value="Lốc" /><option value="Quyển" /><option value="Cái" /><option value="Bộ" /><option value="Gói" /></datalist></label>
-            <label className="catalog-category-field"><span>Nhóm hàng</span><input maxLength={120} value={editor.category} onChange={e => patch({ category: e.target.value })} disabled={saving} placeholder="Để trống nếu chưa phân nhóm" /></label>
+
+          <div className="catalog-editor-tabs" role="group" aria-label="Các mục chỉnh sửa">
+            <button type="button" className={editorTab === 'basic' ? 'active' : ''} aria-pressed={editorTab === 'basic'} onClick={() => setEditorTab('basic')}>Cơ bản</button>
+            <button type="button" className={editorTab === 'package' ? 'active' : ''} aria-pressed={editorTab === 'package'} onClick={() => setEditorTab('package')}>Đóng gói</button>
+            <button type="button" className={editorTab === 'spec' ? 'active' : ''} aria-pressed={editorTab === 'spec'} onClick={() => setEditorTab('spec')}>Thông số</button>
+            {editor.mode === 'update' && <button type="button" className={editorTab === 'prices' ? 'active' : ''} aria-pressed={editorTab === 'prices'} onClick={() => setEditorTab('prices')}>Giá & tồn</button>}
           </div>
-          <section className="catalog-spec-section">
-            <h3>Quy cách đóng gói</h3>
-            <p>Chỉ điền thông số đã xác nhận.</p>
+          {editorTab === 'basic' && <section className="catalog-editor-panel" aria-label="Thông tin cơ bản">
+            <div className="catalog-form-grid">
+              <label><span>Mã CTY <b>*</b></span><input type="text" required maxLength={120} value={editor.companyCode}
+                onChange={e => patch({ companyCode: e.target.value })} disabled={editor.mode === 'update' || saving}
+                autoComplete="off" spellCheck={false} placeholder="Mã trên Excel" /></label>
+              <label><span>Tên hàng <b>*</b></span><input type="text" required maxLength={400} value={editor.name}
+                onChange={e => patch({ name: e.target.value })} disabled={saving} autoComplete="off" placeholder="Tên theo danh mục công ty" /></label>
+              <label><span>SKU</span><input maxLength={120} value={editor.sku} onChange={e => patch({ sku: e.target.value })} disabled={saving} placeholder="Nếu có" /></label>
+              <label><span>Đơn vị tính</span><input list="store-units" maxLength={60} value={editor.unit} onChange={e => patch({ unit: e.target.value })} disabled={saving} placeholder="Thùng, hộp, quyển..." /><datalist id="store-units"><option value="Thùng" /><option value="Hộp" /><option value="Lốc" /><option value="Quyển" /><option value="Cái" /><option value="Bộ" /><option value="Gói" /></datalist></label>
+              <label className="catalog-category-field"><span>Nhóm hàng</span><input maxLength={120} value={editor.category} onChange={e => patch({ category: e.target.value })} disabled={saving} placeholder="Nếu có" /></label>
+            </div>
+          </section>}
+          {editorTab === 'package' && <section className="catalog-editor-panel catalog-spec-section" aria-label="Quy cách đóng gói">
+            <p className="catalog-editor-guidance">Chỉ nhập quy cách đã xác minh.</p>
             <div className="catalog-form-grid">
               <label><span>Đơn vị sản phẩm lẻ</span><input maxLength={40} value={editor.spec.pieceUnit} onChange={e => patchSpec('pieceUnit', e.target.value)} disabled={saving} placeholder="Quyển, cái..." /></label>
-              <label><span>Số sản phẩm / thùng</span><input type="number" min="1" max="100000000" step="1" value={editor.spec.unitsPerCarton} onChange={e => patchSpec('unitsPerCarton', e.target.value)} disabled={saving} placeholder="Để trống nếu chưa biết" /></label>
-              <label><span>Đơn vị đóng gói trung gian</span><input maxLength={40} value={editor.spec.packUnit} onChange={e => patchSpec('packUnit', e.target.value)} disabled={saving} placeholder="Lốc, hộp..." /></label>
-              <label><span>Sản phẩm / lốc hoặc hộp</span><input type="number" min="1" max="100000" step="1" value={editor.spec.unitsPerPack} onChange={e => patchSpec('unitsPerPack', e.target.value)} disabled={saving} placeholder="Để trống nếu chưa biết" /></label>
-              <label><span>Số lốc hoặc hộp / thùng</span><input type="number" min="1" max="100000" step="1" value={editor.spec.packsPerCarton} onChange={e => patchSpec('packsPerCarton', e.target.value)} disabled={saving} placeholder="Để trống nếu chưa biết" /></label>
-              <label><span>Ghi chú đóng gói</span><input maxLength={300} value={editor.spec.packagingNote} onChange={e => patchSpec('packagingNote', e.target.value)} disabled={saving} placeholder="Thông tin có nguồn thực tế" /></label>
+              <label><span>Số sản phẩm / thùng</span><input type="number" min="1" max="100000000" step="1" value={editor.spec.unitsPerCarton} onChange={e => patchSpec('unitsPerCarton', e.target.value)} disabled={saving} placeholder="Nếu đã xác minh" /></label>
+              <label><span>Đơn vị đóng gói</span><input maxLength={40} value={editor.spec.packUnit} onChange={e => patchSpec('packUnit', e.target.value)} disabled={saving} placeholder="Lốc, hộp..." /></label>
+              <label><span>Số sản phẩm / lốc hoặc hộp</span><input type="number" min="1" max="100000" step="1" value={editor.spec.unitsPerPack} onChange={e => patchSpec('unitsPerPack', e.target.value)} disabled={saving} /></label>
+              <label><span>Số lốc hoặc hộp / thùng</span><input type="number" min="1" max="100000" step="1" value={editor.spec.packsPerCarton} onChange={e => patchSpec('packsPerCarton', e.target.value)} disabled={saving} /></label>
+              <label><span>Ghi chú đóng gói</span><input maxLength={300} value={editor.spec.packagingNote} onChange={e => patchSpec('packagingNote', e.target.value)} disabled={saving} /></label>
             </div>
-            <details className="catalog-spec-extra">
-              <summary>Thông số sản phẩm (khổ, trang, GSM...)</summary>
-              <div className="catalog-form-grid">
-                <label><span>Khổ giấy</span><input maxLength={60} value={editor.spec.paperSize} onChange={e => patchSpec('paperSize', e.target.value)} disabled={saving} placeholder="Khổ giấy thực tế" /></label>
-                <label><span>Số trang</span><input type="number" min="1" max="10000" step="1" value={editor.spec.pages} onChange={e => patchSpec('pages', e.target.value)} disabled={saving} /></label>
-                <label><span>Định lượng GSM</span><input type="number" min="1" max="2000" step="1" value={editor.spec.gsm} onChange={e => patchSpec('gsm', e.target.value)} disabled={saving} /></label>
-                <label><span>Loại kẻ</span><input maxLength={120} value={editor.spec.ruling} onChange={e => patchSpec('ruling', e.target.value)} disabled={saving} /></label>
-                <label className="catalog-category-field"><span>Loại bìa</span><input maxLength={120} value={editor.spec.coverType} onChange={e => patchSpec('coverType', e.target.value)} disabled={saving} /></label>
-              </div>
-            </details>
-          </section>
-          <p className="catalog-form-note">Đổi đơn vị tính không tự quy đổi số tồn.</p>
+          </section>}
+          {editorTab === 'spec' && <section className="catalog-editor-panel catalog-spec-section" aria-label="Thông số sản phẩm">
+            <div className="catalog-form-grid">
+              <label><span>Khổ giấy</span><input maxLength={60} value={editor.spec.paperSize} onChange={e => patchSpec('paperSize', e.target.value)} disabled={saving} placeholder="A4, A5, B5..." /></label>
+              <label><span>Số trang</span><input type="number" min="1" max="10000" step="1" value={editor.spec.pages} onChange={e => patchSpec('pages', e.target.value)} disabled={saving} /></label>
+              <label><span>Định lượng GSM</span><input type="number" min="1" max="2000" step="1" value={editor.spec.gsm} onChange={e => patchSpec('gsm', e.target.value)} disabled={saving} /></label>
+              <label><span>Loại kẻ</span><input maxLength={120} value={editor.spec.ruling} onChange={e => patchSpec('ruling', e.target.value)} disabled={saving} placeholder="4 ô, kẻ ngang..." /></label>
+              <label className="catalog-category-field"><span>Loại bìa</span><input maxLength={120} value={editor.spec.coverType} onChange={e => patchSpec('coverType', e.target.value)} disabled={saving} /></label>
+            </div>
+          </section>}
+          {editorTab === 'prices' && editor.mode === 'update' && <section className="catalog-editor-panel catalog-price-overview" aria-label="Giá và tồn kho">
+            <div className="catalog-price-stock">
+              <div><small>Tồn theo Excel</small><strong>{editingProduct?.quantity == null ? 'Chưa có dữ liệu' : editingProduct.quantity.toLocaleString('vi-VN') + ' ' + (editingProduct.unit || '')}</strong></div>
+              <div><small>Nhập tồn</small><strong>{formatDate(editingProduct?.inventoryUpdatedAt ?? null)}</strong></div>
+            </div>
+            <div className="catalog-price-lines">
+              {snapshot.priceTypes.length ? snapshot.priceTypes.map(type => <div key={type.id}><span>{type.label}{type.id === snapshot.defaultPriceTypeId ? ' · mặc định' : ''}</span><strong>{editingProduct ? formatVnd(priceFor(editingProduct, type.id)) : 'Chưa có giá'}</strong></div>) : <p>Chưa có bảng giá.</p>}
+            </div>
+            <p className="catalog-editor-guidance">Giá và tồn kho được cập nhật riêng trong mục Nhập Excel.</p>
+          </section>}
+          {editorTab === 'basic' && <p className="catalog-form-note">Đổi đơn vị tính không tự quy đổi số tồn.</p>}
           {error && <div className="catalog-error" role="alert">{error}</div>}
           <div className="catalog-form-actions">
             <button type="button" className="catalog-secondary" disabled={saving} onClick={closeEditor}>Hủy</button>
