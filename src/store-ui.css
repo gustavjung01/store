@@ -442,3 +442,7 @@ button:disabled{cursor:not-allowed;opacity:.55}
   .excel-column-map-scroll th select{min-height:44px;font-size:16px}
   .excel-extra-settings{grid-template-columns:1fr}
 }
+
+/* Keep company code visible while the next group of columns is viewed. */
+.excel-column-map-scroll th:first-child{position:sticky;left:0;z-index:1;box-shadow:1px 0 var(--store-line)}
+.excel-column-map-scroll td:first-child{position:sticky;left:0;z-index:1;background:var(--store-surface);box-shadow:1px 0 var(--store-line)}
