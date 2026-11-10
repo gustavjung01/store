@@ -354,3 +354,32 @@ button:disabled{cursor:not-allowed;opacity:.55}
   .main-search .result-card{padding:15px}
   .catalog-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* Product editor: one short task at a time, no modal-scrolling form wall. */
+.catalog-editor-tabs{position:sticky;top:52px;z-index:3;display:flex;gap:6px;flex:none;padding:10px 16px;background:var(--store-surface);border-bottom:1px solid var(--store-line)}
+.catalog-editor-tabs button{flex:1;min-width:0;min-height:40px;border:1px solid var(--store-line);border-radius:9px;background:var(--store-surface);color:var(--store-muted);font-size:12px;font-weight:750}
+.catalog-editor-tabs button.active{border-color:var(--store-accent);background:var(--store-accent-subtle);color:var(--store-accent-strong)}
+.catalog-editor-tabs button:focus-visible{outline:2px solid var(--store-accent);outline-offset:2px}
+.catalog-editor-panel{flex:1;min-height:170px;padding-bottom:12px}
+.catalog-editor-panel.catalog-spec-section{padding-top:15px}
+.catalog-editor-guidance{margin:0 20px 7px;color:var(--store-muted);font-size:12px;line-height:1.5}
+.catalog-price-overview{padding:16px 20px}
+.catalog-price-stock{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.catalog-price-stock>div{border:1px solid var(--store-line);border-radius:10px;background:var(--store-accent-subtle);padding:12px;display:flex;flex-direction:column;gap:7px}
+.catalog-price-stock small{color:var(--store-muted);font-size:12px}
+.catalog-price-stock strong{color:var(--store-ink);font-size:16px;overflow-wrap:anywhere}
+.catalog-price-lines{border:1px solid var(--store-line);border-radius:10px;overflow:hidden}
+.catalog-price-lines>div{display:flex;justify-content:space-between;gap:12px;padding:11px 12px;font-size:13px;border-top:1px solid var(--store-line)}
+.catalog-price-lines>div:first-child{border-top:0}
+.catalog-price-lines strong{color:var(--store-ink);text-align:right}
+.catalog-price-lines p{padding:10px 12px;color:var(--store-muted);font-size:13px}
+.catalog-price-overview .catalog-editor-guidance{margin:13px 0 0}
+@media(max-width:780px){
+  .catalog-editor-tabs{top:56px;padding:8px 12px;gap:5px}
+  .catalog-editor-tabs button{min-height:44px;font-size:11px;padding:4px 3px}
+  .catalog-editor-panel{min-height:140px}
+  .catalog-price-overview{padding:13px 15px}
+  .catalog-price-stock{grid-template-columns:1fr 1fr}
+  .catalog-editor-guidance{margin:0 15px 7px}
+}
