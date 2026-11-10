@@ -109,12 +109,12 @@ const headerAliases: Record<string, ColumnTarget> = {
   'ghi chu dong goi': 'spec:packagingNote',
 }
 
-/** Only unambiguous, recognized headers are mapped. In particular PRICES stay opt-in. */
 /** Header-only templates must show “Dòng 1”, even though they cannot be imported yet. */
 export function availableHeaderRows(sheet: ExcelSheet): number[] {
   return Array.from({ length: Math.min(20, sheet.data.length) }, (_, index) => index + 1)
 }
 
+/** Only unambiguous, recognized headers are mapped. In particular PRICES stay opt-in. */
 export function suggestMapping(sheet: ExcelSheet, headerRow: number, kind: ImportKind): ColumnSelection {
   let mapping = emptyMapping()
   const headers = sheet.data[headerRow - 1] ?? []
