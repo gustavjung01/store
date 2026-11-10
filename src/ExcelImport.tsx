@@ -54,7 +54,7 @@ function batchStatusLabel(status: string): string {
 
 function displayPrices(prices: Record<string, string | number>): string {
   const entries = Object.entries(prices)
-  return entries.length ? entries.map(([label, amount]) => label + ': ' + amount).join(' · ') : '—'
+  return entries.length ? entries.map(([label, amount]) => label + ': ' + (amount == null ? '—' : typeof amount === 'number' ? amount.toLocaleString('vi-VN') : amount)).join(' · ') : '—'
 }
 
 const initialMapping: ColumnSelection = {
@@ -156,7 +156,7 @@ export default function ExcelImport({
     try {
       const { default: readExcelFile } = await import('read-excel-file/browser')
       const parsed = await readExcelFile(selected)
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('File Excel không có sheet hợp lệ')
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('File Excel không có trang tính hợp lệ')
       setSheets(parsed as ExcelSheet[])
       setFilename(selected.name)
     } catch (cause) {
