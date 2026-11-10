@@ -308,3 +308,11 @@
 :root[data-theme="dark"] .catalog-price-stock>div{background:#1b2b30;border-color:var(--store-line)}
 :root[data-theme="dark"] .catalog-price-lines{border-color:var(--store-line)}
 :root[data-theme="dark"] .catalog-price-lines>div{border-color:var(--store-line)}
+
+/* Dark mode: dropdowns and custom entries never flash white. */
+:root[data-theme="dark"] .catalog-form-grid .catalog-attribute-field>select{
+  background-color:var(--store-input);color:var(--store-ink);border-color:var(--store-line);
+  color-scheme:dark;
+}
+:root[data-theme="dark"] .catalog-form-grid .catalog-attribute-field>select:focus{border-color:var(--store-accent);box-shadow:var(--store-focus)}
+:root[data-theme="dark"] .catalog-form-grid .catalog-attribute-field>select:disabled{background:#242d37;color:#9faab6}

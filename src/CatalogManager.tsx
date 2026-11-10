@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { formatDate, formatVnd, normalizeCode, priceFor, stockState } from './domain'
 import type { CatalogSnapshot, ProductRecord } from './domain'
 import { normalizeProductSpec, safeProductSpec, piecesPerCarton } from './productSpec'
+import AttributeDropdown, { commonAttributeChoices } from './AttributeDropdown'
 import type { ProductSpec } from './productSpec'
 
 type Editor = {
@@ -65,6 +66,29 @@ export default function CatalogManager({
   }, [message])
   const [edits, setEdits] = useState<EditEvent[]>([])
   const [historyError, setHistoryError] = useState('')
+
+  const attributeChoices = useMemo(() => {
+    const rows = snapshot.products.map(product => ({ product, spec: safeProductSpec(product.productSpec) }))
+    const values = (pick: (item: typeof rows[number]) => unknown) =>
+      Array.from(new Set(rows.map(pick)
+        .filter(value => value !== null && value !== undefined && String(value).trim() !== '')
+        .map(String)))
+        .sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }))
+    return {
+      category: values(row => row.product.category),
+      unit: values(row => row.product.unit),
+      paperSize: values(row => row.spec.paperSize),
+      pages: values(row => row.spec.pages),
+      ruling: values(row => row.spec.ruling),
+      gsm: values(row => row.spec.gsm),
+      coverType: values(row => row.spec.coverType),
+      pieceUnit: values(row => row.spec.pieceUnit),
+      packUnit: values(row => row.spec.packUnit),
+      unitsPerPack: values(row => row.spec.unitsPerPack),
+      packsPerCarton: values(row => row.spec.packsPerCarton),
+      unitsPerCarton: values(row => row.spec.unitsPerCarton),
+    }
+  }, [snapshot.products])
 
   const unnamed = useMemo(
     () => snapshot.products.filter(p => !p.name?.trim()).length, [snapshot.products],
@@ -271,28 +295,28 @@ export default function CatalogManager({
               <label><span>Tên hàng <b>*</b></span><input type="text" required maxLength={400} value={editor.name}
                 onChange={e => patch({ name: e.target.value })} disabled={saving} autoComplete="off" placeholder="Tên theo danh mục công ty" /></label>
               <label><span>SKU</span><input maxLength={120} value={editor.sku} onChange={e => patch({ sku: e.target.value })} disabled={saving} placeholder="Nếu có" /></label>
-              <label><span>Đơn vị tính</span><input list="store-units" maxLength={60} value={editor.unit} onChange={e => patch({ unit: e.target.value })} disabled={saving} placeholder="Thùng, hộp, quyển..." /><datalist id="store-units"><option value="Thùng" /><option value="Hộp" /><option value="Lốc" /><option value="Quyển" /><option value="Cái" /><option value="Bộ" /><option value="Gói" /></datalist></label>
-              <label className="catalog-category-field"><span>Nhóm hàng</span><input maxLength={120} value={editor.category} onChange={e => patch({ category: e.target.value })} disabled={saving} placeholder="Nếu có" /></label>
+              <AttributeDropdown label="Đơn vị tính" value={editor.unit} options={[...commonAttributeChoices.unit, ...attributeChoices.unit]} onChange={unit => patch({ unit })} disabled={saving} maxLength={60} />
+              <AttributeDropdown label="Nhóm hàng" value={editor.category} options={attributeChoices.category} onChange={category => patch({ category })} disabled={saving} fullWidth />
             </div>
           </section>}
           {editorTab === 'package' && <section className="catalog-editor-panel catalog-spec-section" aria-label="Quy cách đóng gói">
             <p className="catalog-editor-guidance">Chỉ nhập quy cách đã xác minh.</p>
             <div className="catalog-form-grid">
-              <label><span>Đơn vị sản phẩm lẻ</span><input maxLength={40} value={editor.spec.pieceUnit} onChange={e => patchSpec('pieceUnit', e.target.value)} disabled={saving} placeholder="Quyển, cái..." /></label>
-              <label><span>Số sản phẩm / thùng</span><input type="number" min="1" max="100000000" step="1" value={editor.spec.unitsPerCarton} onChange={e => patchSpec('unitsPerCarton', e.target.value)} disabled={saving} placeholder="Nếu đã xác minh" /></label>
-              <label><span>Đơn vị đóng gói</span><input maxLength={40} value={editor.spec.packUnit} onChange={e => patchSpec('packUnit', e.target.value)} disabled={saving} placeholder="Lốc, hộp..." /></label>
-              <label><span>Số sản phẩm / lốc hoặc hộp</span><input type="number" min="1" max="100000" step="1" value={editor.spec.unitsPerPack} onChange={e => patchSpec('unitsPerPack', e.target.value)} disabled={saving} /></label>
-              <label><span>Số lốc hoặc hộp / thùng</span><input type="number" min="1" max="100000" step="1" value={editor.spec.packsPerCarton} onChange={e => patchSpec('packsPerCarton', e.target.value)} disabled={saving} /></label>
+              <AttributeDropdown label="Đơn vị sản phẩm lẻ" value={editor.spec.pieceUnit} options={[...commonAttributeChoices.pieceUnit, ...attributeChoices.pieceUnit]} onChange={value => patchSpec('pieceUnit', value)} disabled={saving} maxLength={40} />
+              <AttributeDropdown label="Số sản phẩm / thùng" value={editor.spec.unitsPerCarton} options={attributeChoices.unitsPerCarton} onChange={value => patchSpec('unitsPerCarton', value)} disabled={saving} numericMax={100000000} />
+              <AttributeDropdown label="Đơn vị đóng gói" value={editor.spec.packUnit} options={[...commonAttributeChoices.packUnit, ...attributeChoices.packUnit]} onChange={value => patchSpec('packUnit', value)} disabled={saving} maxLength={40} />
+              <AttributeDropdown label="Số sản phẩm / lốc hoặc hộp" value={editor.spec.unitsPerPack} options={attributeChoices.unitsPerPack} onChange={value => patchSpec('unitsPerPack', value)} disabled={saving} numericMax={100000} />
+              <AttributeDropdown label="Số lốc hoặc hộp / thùng" value={editor.spec.packsPerCarton} options={attributeChoices.packsPerCarton} onChange={value => patchSpec('packsPerCarton', value)} disabled={saving} numericMax={100000} />
               <label><span>Ghi chú đóng gói</span><input maxLength={300} value={editor.spec.packagingNote} onChange={e => patchSpec('packagingNote', e.target.value)} disabled={saving} /></label>
             </div>
           </section>}
           {editorTab === 'spec' && <section className="catalog-editor-panel catalog-spec-section" aria-label="Thông số sản phẩm">
             <div className="catalog-form-grid">
-              <label><span>Khổ giấy</span><input maxLength={60} value={editor.spec.paperSize} onChange={e => patchSpec('paperSize', e.target.value)} disabled={saving} placeholder="A4, A5, B5..." /></label>
-              <label><span>Số trang</span><input type="number" min="1" max="10000" step="1" value={editor.spec.pages} onChange={e => patchSpec('pages', e.target.value)} disabled={saving} /></label>
-              <label><span>Định lượng GSM</span><input type="number" min="1" max="2000" step="1" value={editor.spec.gsm} onChange={e => patchSpec('gsm', e.target.value)} disabled={saving} /></label>
-              <label><span>Loại kẻ</span><input maxLength={120} value={editor.spec.ruling} onChange={e => patchSpec('ruling', e.target.value)} disabled={saving} placeholder="4 ô, kẻ ngang..." /></label>
-              <label className="catalog-category-field"><span>Loại bìa</span><input maxLength={120} value={editor.spec.coverType} onChange={e => patchSpec('coverType', e.target.value)} disabled={saving} /></label>
+              <AttributeDropdown label="Khổ giấy" value={editor.spec.paperSize} options={[...commonAttributeChoices.paperSize, ...attributeChoices.paperSize]} onChange={value => patchSpec('paperSize', value)} disabled={saving} maxLength={60} />
+              <AttributeDropdown label="Số trang" value={editor.spec.pages} options={[...commonAttributeChoices.pages, ...attributeChoices.pages]} onChange={value => patchSpec('pages', value)} disabled={saving} numericMax={10000} />
+              <AttributeDropdown label="Định lượng GSM" value={editor.spec.gsm} options={[...commonAttributeChoices.gsm, ...attributeChoices.gsm]} onChange={value => patchSpec('gsm', value)} disabled={saving} numericMax={2000} />
+              <AttributeDropdown label="Loại kẻ" value={editor.spec.ruling} options={[...commonAttributeChoices.ruling, ...attributeChoices.ruling]} onChange={value => patchSpec('ruling', value)} disabled={saving} maxLength={120} />
+              <AttributeDropdown label="Loại bìa" value={editor.spec.coverType} options={[...commonAttributeChoices.coverType, ...attributeChoices.coverType]} onChange={value => patchSpec('coverType', value)} disabled={saving} maxLength={120} />
             </div>
           </section>}
           {editorTab === 'prices' && editor.mode === 'update' && <section className="catalog-editor-panel catalog-price-overview" aria-label="Giá và tồn kho">
