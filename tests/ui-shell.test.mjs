@@ -6,6 +6,8 @@ const file = (path) => readFileSync(new URL('../' + path, import.meta.url), 'utf
 const app = file('src/App.tsx')
 const css = file('src/store-ui.css')
 const catalogue = file('src/CatalogManager.tsx')
+const login = file('src/AuthGate.tsx')
+const excel = file('src/ExcelImport.tsx')
 const manifest = JSON.parse(file('public/manifest.webmanifest'))
 const html = file('index.html')
 
@@ -35,8 +37,9 @@ test('product search does not show fake product and permits explicit result sele
   assert.match(app, /results\.slice\(0, 6\)\.map/)
   assert.match(app, /setSelectedCode\(item\.companyCode\)/)
   assert.match(app, /product \? <ProductPreview key=\{product\.companyCode\}/)
-  assert.match(app, /Thông tin chỉ hiển thị sau khi tìm thấy mã thực tế/)
-  assert.match(app, /Không phải tồn realtime/)
+  assert.match(app, /aria-label="Làm mới dữ liệu"/)
+  assert.match(app, /Tồn theo lần nhập Excel gần nhất/)
+  assert.doesNotMatch(app, /Mã hàng, giá &|Sẵn sàng tra cứu|Dữ liệu đã đồng bộ/)
   assert.match(app, /formatDate\(product\?\.inventoryUpdatedAt/)
 })
 
@@ -58,4 +61,12 @@ test('shared geometry is accessible and status styles remain semantic', () => {
   assert.match(css, /\.stock-empty/)
   assert.match(css, /\.stock-unknown/)
   assert.match(css, /\.stock-available/)
+})
+
+test('business UI uses short Vietnamese copy without provider internals', () => {
+  assert.doesNotMatch(login, /Chưa cấu hình Neon Auth hoặc STORE API|cache IndexedDB/)
+  assert.doesNotMatch(excel, /Xem trước thay đổi trên Neon|DB chưa xác nhận|trong transaction/)
+  assert.match(excel, /batchStatusLabel\(batch.status\)/)
+  assert.match(catalogue, /<h1>Danh mục<\/h1>/)
+  assert.doesNotMatch(catalogue, /<h1>Danh mục <span>sản phẩm<\/span><\/h1>/)
 })
