@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 /** Every suggested value is optional. Selecting a suggestion is the only way to apply it. */
 const OTHER = '__store_other_value__'
@@ -29,13 +29,14 @@ export default function AttributeDropdown({
   label, value, options, onChange, disabled, maxLength = 120, numericMax, fullWidth = false,
 }: AttributeDropdownProps) {
   const [custom, setCustom] = useState(false)
+  const selectId = useId()
   // Add the current value as a choice so old/unusual product facts remain intact.
   const choices = Array.from(new Set([...options, value]
     .map(item => String(item).trim()).filter(item => Boolean(item) && item !== OTHER)))
   return (
-    <label className={'catalog-attribute-field' + (fullWidth ? ' catalog-category-field' : '')}>
-      <span>{label}</span>
-      <select
+    <div className={'catalog-attribute-field' + (fullWidth ? ' catalog-category-field' : '')}>
+      <label htmlFor={selectId}>{label}</label>
+      <select id={selectId}
         aria-label={'Chọn ' + label.toLocaleLowerCase('vi')}
         value={custom ? OTHER : value}
         disabled={disabled}
@@ -66,6 +67,6 @@ export default function AttributeDropdown({
         disabled={disabled}
         onChange={event => onChange(event.target.value)}
       />}
-    </label>
+    </div>
   )
 }
