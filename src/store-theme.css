@@ -331,3 +331,11 @@
 :root[data-theme="dark"] .excel-column-map-scroll td{background:var(--store-surface);color:var(--store-muted)}
 :root[data-theme="dark"] .excel-mapper-col-label{color:var(--store-ink)}
 :root[data-theme="dark"] .excel-column-map-scroll th select{background:var(--store-input);border-color:var(--store-line);color:var(--store-ink);color-scheme:dark}
+
+
+/* New product facts inherit the gentle dark palette; never white or glowing panels. */
+:root[data-theme="dark"] .product-attributes{background:var(--store-surface);border-color:var(--store-line)}
+:root[data-theme="dark"] .product-attribute-group{background:#202a35;border-color:var(--store-line)}
+:root[data-theme="dark"] .product-attribute-row{border-color:var(--store-line)}
+:root[data-theme="dark"] .product-attribute-conversion{background:#20362f;border-color:#3e584d}
+:root[data-theme="dark"] .product-attribute-conversion .carton-equivalent{color:#bfdbd3}
