@@ -14,7 +14,6 @@ export default function AuthGate() {
   const [scope, setScope] = useState<string | null>(null)
   const [role, setRole] = useState<'admin' | 'viewer' | null>(null)
   const [snapshot, setSnapshot] = useState<CatalogSnapshot>(emptySnapshot)
-  const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(true)
   const [loading, setLoading] = useState(false)
@@ -38,10 +37,9 @@ export default function AuthGate() {
     setRole(null)
     setScope(null)
     setSnapshot(emptySnapshot())
-    setStatus('')
     try {
       if (!navigator.onLine) throw new Error('Cần kết nối mạng để xác minh tài khoản')
-      if (!authUrl) throw new Error('Chưa cấu hình Neon Auth')
+      if (!authUrl) throw new Error('Dịch vụ đăng nhập chưa sẵn sàng')
       const token = await getNeonAuthJwt(authUrl)
       const membership = await verifyStoreMembership(storeApiUrl, token)
       setRole(membership.role)
@@ -51,16 +49,14 @@ export default function AuthGate() {
       const cached = await readAuthorizedSnapshot(cacheId).catch(() => null)
       if (cached) {
         setSnapshot(cached)
-        setStatus('Dữ liệu lưu trên máy · Đồng bộ lần cuối ' + (cached.syncedAt || 'không rõ'))
       }
 
       const fresh = await downloadCatalog(storeApiUrl, token)
       setSnapshot(fresh)
-      setStatus('Đã đồng bộ danh mục · ' + (fresh.syncedAt || ''))
       try {
         await storeAuthorizedSnapshot(cacheId, fresh)
       } catch {
-        setStatus('Đã tải dữ liệu · Thiết bị không lưu được cache IndexedDB')
+        setError('Không lưu được dữ liệu trên máy. Khi mất mạng có thể cần tải lại.')
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể đồng bộ STORE')
@@ -89,7 +85,7 @@ export default function AuthGate() {
       })
       if (result.error) throw new Error(result.error.message || 'Không gửi được email đặt mật khẩu')
       setRecoveryView('sent')
-      setRecoveryMessage('Nếu email đã có tài khoản STORE, Neon Auth sẽ gửi đường dẫn đặt mật khẩu. Hãy kiểm tra cả thư mục Spam.')
+      setRecoveryMessage('Nếu email có tài khoản STORE, đường dẫn đặt mật khẩu sẽ được gửi đến hộp thư. Hãy kiểm tra cả thư rác.')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không gửi được email đặt mật khẩu')
     } finally {
@@ -113,7 +109,7 @@ export default function AuthGate() {
       setNewPassword('')
       setConfirmPassword('')
       setRecoveryView('login')
-      setRecoveryMessage('Mật khẩu đã được cập nhật. Anh có thể đăng nhập STORE.')
+      setRecoveryMessage('Đã đổi mật khẩu. Vui lòng đăng nhập.')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không đặt lại được mật khẩu')
     } finally {
@@ -172,8 +168,7 @@ export default function AuthGate() {
       setRole(null)
       setScope(null)
       setSnapshot(emptySnapshot())
-      setStatus('')
-      setPassword('')
+        setPassword('')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không đăng xuất được')
     }
@@ -181,7 +176,7 @@ export default function AuthGate() {
 
   async function adminToken(): Promise<string> {
     if (!authClient || !storeApiUrl || role !== 'admin') throw new Error('Không có quyền quản trị STORE')
-    if (!authUrl) throw new Error('Chưa cấu hình Neon Auth')
+    if (!authUrl) throw new Error('Dịch vụ đăng nhập chưa sẵn sàng')
     const token = await getNeonAuthJwt(authUrl)
     const membership = await verifyStoreMembership(storeApiUrl, token)
     if (membership.role !== 'admin') throw new Error('Tài khoản không còn quyền quản trị')
@@ -190,7 +185,7 @@ export default function AuthGate() {
 
   if (checking) return <div className="auth-shell"><div className="auth-panel"><h1>STORE</h1><p>Đang xác minh phiên đăng nhập...</p></div></div>
   if (!authClient || !authUrl || !storeApiUrl) {
-    return <div className="auth-shell"><div className="auth-panel"><h1>STORE</h1><p>Chưa cấu hình Neon Auth hoặc STORE API cho môi trường này.</p><p>Không tải dữ liệu doanh nghiệp khi thiếu cấu hình xác thực.</p></div></div>
+    return <div className="auth-shell"><div className="auth-panel"><h1>STORE</h1><p>STORE chưa sẵn sàng. Vui lòng liên hệ quản trị viên.</p></div></div>
   }
 
   if (!signedIn && recoveryView === 'reset') {
@@ -199,7 +194,6 @@ export default function AuthGate() {
         <form className="auth-panel" onSubmit={(event) => { void finishReset(event) }}>
           <div className="auth-mark">S</div>
           <h1>Đặt mật khẩu STORE</h1>
-          <p>Đường dẫn này được gửi đến email đã đăng ký trong Neon Auth.</p>
           <label htmlFor="new-password">Mật khẩu mới</label>
           <input id="new-password" type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           <label htmlFor="confirm-password">Nhập lại mật khẩu</label>
@@ -218,7 +212,6 @@ export default function AuthGate() {
         <form className="auth-panel" onSubmit={(event) => { void requestReset(event) }}>
           <div className="auth-mark">S</div>
           <h1>Thiết lập mật khẩu</h1>
-          <p>Nhập email Admin STORE để nhận đường dẫn đặt mật khẩu từ Neon Auth.</p>
           <label htmlFor="reset-email">Email</label>
           <input id="reset-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           {recoveryMessage && <p className="auth-success" role="status">{recoveryMessage}</p>}
@@ -236,7 +229,6 @@ export default function AuthGate() {
         <form className="auth-panel" onSubmit={(event) => { void signIn(event) }}>
           <div className="auth-mark">S</div>
           <h1>Đăng nhập STORE</h1>
-          <p>Dành cho nhân viên và quản trị viên đã được cấp tài khoản.</p>
           <label htmlFor="login-email">Email</label>
           <input id="login-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
           <label htmlFor="login-password">Mật khẩu</label>
@@ -245,7 +237,6 @@ export default function AuthGate() {
           {error && <p className="auth-error" role="alert">{error}</p>}
           <button disabled={loading} className="auth-submit" type="submit">{loading ? 'Đang xác minh...' : 'Đăng nhập'}</button>
           <button className="auth-text-button" type="button" onClick={() => { setRecoveryView('request'); setError(''); setRecoveryMessage('') }}>Chưa có mật khẩu / Quên mật khẩu?</button>
-          <small>Không cho đăng ký tự do. Liên hệ quản trị viên để được cấp quyền.</small>
         </form>
       </main>
     )
@@ -258,8 +249,8 @@ export default function AuthGate() {
       <main className="auth-shell">
         <section className="auth-panel" aria-live="polite">
           <div className="auth-mark">S</div>
-          <h1>Đang xác minh quyền STORE</h1>
-          <p>{loading ? 'Đang kiểm tra Neon Auth và quyền truy cập danh mục...' : 'Không thể mở dữ liệu khi phiên chưa được xác thực đầy đủ.'}</p>
+          <h1>Đang mở STORE</h1>
+          <p>{loading ? 'Đang kiểm tra tài khoản...' : 'Không thể xác minh tài khoản. Vui lòng thử lại.'}</p>
           {error && <p className="auth-error" role="alert">{error}</p>}
           <button className="auth-submit" type="button" disabled={loading} onClick={() => { void load(signedIn) }}>
             {loading ? 'Đang xác minh...' : 'Thử kết nối lại'}
@@ -274,7 +265,7 @@ export default function AuthGate() {
 
   return (
     <>
-      <App snapshot={snapshot} catalogStatus={status} cacheScope={scope} isLoading={loading} role={role} apiBase={storeApiUrl} getAdminToken={adminToken}
+      <App snapshot={snapshot} cacheScope={scope} isLoading={loading} role={role} apiBase={storeApiUrl} getAdminToken={adminToken}
         onReload={() => { void load(signedIn) }} onSignOut={() => { void signOut() }} />
       {error && <div className="session-error" role="alert">{error}<button type="button" onClick={() => { void load(signedIn) }}>Thử lại</button></div>}
     </>
