@@ -404,3 +404,41 @@ button:disabled{cursor:not-allowed;opacity:.55}
 @media(max-width:780px){
   .catalog-form-grid .catalog-attribute-field>select{min-height:44px;font-size:16px}
 }
+
+
+/* Spreadsheet-first column mapping: one dropdown directly above real Excel cells. */
+.excel-auto-map-note{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 0 10px;font-size:12px;color:var(--store-muted)}
+.excel-auto-map-note button{border:1px solid var(--store-line);background:var(--store-surface);border-radius:9px;color:var(--store-accent-strong);min-height:38px;padding:7px 12px;cursor:pointer;font-weight:700;white-space:nowrap}
+.excel-auto-map-note button:focus-visible{outline:2px solid var(--store-accent);outline-offset:2px}
+.excel-column-map{margin:8px 0 14px;max-width:100%;min-width:0;border:1px solid var(--store-line);border-radius:13px;overflow:hidden;background:var(--store-surface)}
+.excel-column-map-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px;border-bottom:1px solid var(--store-line)}
+.excel-column-map-heading h3{margin:0 0 4px;font-size:15px;color:var(--store-ink)}
+.excel-column-map-heading p{margin:0;font-size:12px;line-height:1.5;color:var(--store-muted)}
+.excel-mapped-count{font-size:11px;white-space:nowrap;border:1px solid var(--store-line);color:var(--store-accent-strong);border-radius:999px;padding:6px 10px;background:var(--store-accent-subtle)}
+.excel-column-map-pager{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:8px 12px;font-size:12px;font-weight:650;color:var(--store-muted);background:var(--store-accent-subtle);border-bottom:1px solid var(--store-line)}
+.excel-column-map-pager>div{display:flex;gap:6px}
+.excel-column-map-pager button{background:var(--store-surface);color:var(--store-accent-strong);border:1px solid var(--store-line);border-radius:7px;min-height:36px;padding:6px 10px;cursor:pointer;font-size:12px}
+.excel-column-map-pager button:disabled{opacity:.45;cursor:not-allowed}
+.excel-column-map-scroll{max-width:100%;overflow:auto;overscroll-behavior-x:contain}
+.excel-column-map-scroll:focus-visible{outline:2px solid var(--store-accent);outline-offset:-2px}
+.excel-column-map-scroll table{table-layout:fixed;width:100%;border-collapse:collapse;min-width:700px}
+.excel-column-map-scroll th,.excel-column-map-scroll td{min-width:170px;width:185px;max-width:250px;padding:11px 10px;border-right:1px solid var(--store-line);border-bottom:1px solid var(--store-line);text-align:left}
+.excel-column-map-scroll th:last-child,.excel-column-map-scroll td:last-child{border-right:0}
+.excel-column-map-scroll th{background:var(--store-accent-subtle);vertical-align:top}
+.excel-mapper-col-label{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:9px;font-size:12px;font-weight:700;color:var(--store-ink)}
+.excel-column-map-scroll th select{appearance:auto;width:100%;min-height:42px;padding:7px;background:var(--store-surface);border:1px solid var(--store-line);border-radius:8px;font-size:13px;font-weight:650;color:var(--store-ink);cursor:pointer}
+.excel-column-map-scroll th select:focus-visible{border-color:var(--store-accent);outline:2px solid var(--store-accent);outline-offset:1px}
+.excel-column-map-scroll td{max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.5;color:var(--store-muted)}
+.excel-column-map-scroll tr:last-child td{border-bottom:0}
+.excel-column-map-note{margin:0;padding:10px 13px;font-size:11px;line-height:1.55;color:var(--store-muted);border-top:1px solid var(--store-line)}
+.excel-extra-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+@media(max-width:780px){
+  .excel-column-map-heading{flex-direction:column;align-items:flex-start}
+  .excel-auto-map-note{align-items:flex-start}
+  .excel-column-map-pager{flex-wrap:wrap}
+  .excel-column-map-pager button{min-height:44px}
+  .excel-column-map-scroll table{min-width:620px}
+  .excel-column-map-scroll th,.excel-column-map-scroll td{min-width:158px;width:168px}
+  .excel-column-map-scroll th select{min-height:44px;font-size:16px}
+  .excel-extra-settings{grid-template-columns:1fr}
+}
