@@ -119,8 +119,7 @@ export function suggestMapping(sheet: ExcelSheet, headerRow: number, kind: Impor
     if (!target || target === 'price') continue
     if (kind === 'inventory' && target !== 'code' && target !== 'quantity') continue
     if (kind === 'catalog' && target === 'quantity') continue
-    // Never automatically resolve ambiguous duplicate headers by picking the last one.
-    if (Object.entries(headerAliases).some(([alias,t]) => alias !== key && t === target && normalizeHeader(alias) === key)) continue
+    // First unambiguous recognized column wins; duplicate headers are not auto-assigned.
     const alreadyAssigned = target === 'code' ? mapping.code >= 0 :
       target === 'quantity' ? mapping.quantity >= 0 :
       target === 'name' || target === 'sku' || target === 'unit' ? mapping[target] >= 0 :
