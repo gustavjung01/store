@@ -45,6 +45,12 @@
 - [ ] Không migration/deploy production trước khi Owner duyệt riêng.
 - Chi tiết: [Quy tắc đơn vị và quy cách bán sỉ](WHOLESALE_UNITS.md).
 
+## UI — Ghép cột Excel trực quan theo mẫu FBMN (10/11/2026)
+- [x] Giao diện STORE riêng: chọn file/sheet, tự gợi ý cột có tên rõ, dropdown trên từng cột kèm 5 dòng mẫu và phân trang; giữ mã CTY khi xem cột khác.
+- [x] Tên sản phẩm/ĐVT/quy cách có thể chọn theo cột, cột không cần cập nhật = Bỏ qua. Không tự ghép giá từ tên PDF.
+- [x] Dùng API preview, transaction, audit và rollback hiện có; chưa đổi DB hay backend.
+- [ ] Nghiệm thu trên thiết bị thật và file Excel công ty; xác nhận preview của từng thông số trước khi ghi.
+
 ## P2 — Import Excel an toàn
 - [x] Đã viết và CI kiểm thử UI/API admin import `.xlsx` danh mục và nhiều loại giá; chọn sheet, mapping, preview. Chưa xác nhận bằng Excel thật.
 - [x] Đã viết validation tồn mã CTY + số lượng; kiểm tra 0/NULL, trùng, âm, mã mới; test unit thành công.

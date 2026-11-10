@@ -23,7 +23,7 @@ Repository duy nhất: https://github.com/gustavjung01/store
 - **Danh mục**: xem toàn bộ mã, lọc mã thiếu tên; Admin tạo/sửa sản phẩm với **mã CTY + tên hàng bắt buộc**, SKU/ĐVT/nhóm hàng tùy chọn. Sửa tên không làm đổi số tồn/giá.
 - Hiện tên, ĐVT, **giá mặc định**, tồn kho và thời gian nhập Excel.
 - Nút **Xem tất cả giá** để mở các bảng giá khác; không tự tạo giá.
-- Admin import `.xlsx` theo sheet và mapping cột; xem trước thay đổi, xác nhận nhập, lịch sử và hoàn tác lượt gần nhất. **Import danh mục sẽ chặn mã chưa có tên**; nhập tồn vẫn có thể tạo mã tạm chưa có tên để admin hoàn thiện sau.
+- Admin import `.xlsx` theo sheet, **ghép từng cột Excel ngay trên bảng mẫu bằng dropdown** (gợi ý từ tên cột, bỏ qua cột không dùng, giá phải chọn thủ công); xem trước thay đổi, xác nhận nhập, lịch sử và hoàn tác lượt gần nhất. **Import danh mục sẽ chặn mã chưa có tên**; nhập tồn vẫn có thể tạo mã tạm chưa có tên để admin hoàn thiện sau.
 - Dữ liệu riêng tư cần Neon Auth và tài khoản được cấp quyền `viewer/admin`.
 - Nếu tài khoản do quản trị viên tạo chưa có mật khẩu: dùng **Chưa có mật khẩu / Quên mật khẩu?**, nhận email Neon Auth và thiết lập qua liên kết một lần; không lưu mật khẩu vào repo.
 
